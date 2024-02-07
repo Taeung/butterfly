@@ -33,7 +33,7 @@
 	ws.shell = new WebSocket(wsUrl + '/ws' + path);
 	ws.ctl = new WebSocket(wsUrl + '/ctl' + path);
 	open = function() {
-	    console.log("WebSocket open", arguments);
+	    //console.log("WebSocket open", arguments);
 	    if (term) {
 		term.body.classList.remove('stopped');
 		term.out = ws.shell.send.bind(ws.shell);
@@ -54,13 +54,32 @@
 		}));
 		openTs = (new Date()).getTime();
 	    }
-	    return console.log("WebSocket open end", arguments);
+	    return; //console.log("WebSocket open end", arguments);
 	};
 	error = function() {
 	    return console.error("WebSocket error", arguments);
 	};
 	close = function() {
-	    console.log("WebSocket closed", arguments);
+	    //console.log("WebSocket closed", arguments);
+	    var ws_url = document.body.getAttribute('ws_url');
+	    var parts = ws_url.split("/");
+	    var email = parts[parts.length - 1];
+	    var url = `${location.href}/close?user=${email}`;
+
+	    fetch(url)
+		.then(response => {
+		    if (!response.ok) {
+			throw new Error('Network response was not ok');
+		    }
+		    return response.json();
+		})
+		.then(data => {
+		    //console.log(data);
+		})
+		.catch(error => {
+		    console.error('Fetch error:', error);
+		});
+
 	    if (quit) {
 		return;
 	    }
