@@ -155,7 +155,7 @@ class KeptAliveWebSocketHandler(tornado.websocket.WebSocketHandler):
             self.keepalive_timer.stop()
 
 
-@url(r'/ctl/session/(?P<session>[^/]+)')
+@url(r'/websocket/ctl/session/(?P<session>[^/]+)')
 class TermCtlWebSocket(Route, KeptAliveWebSocketHandler):
     sessions = defaultdict(list)
     sessions_secure_users = {}
@@ -263,7 +263,7 @@ class TermCtlWebSocket(Route, KeptAliveWebSocketHandler):
             sys.exit(0)
 
 
-@url(r'/ws/session/(?P<session>[^/]+)')
+@url(r'/websocket/ws/session/(?P<session>[^/]+)')
 class TermWebSocket(Route, KeptAliveWebSocketHandler):
     # List of websockets per session
     sessions = defaultdict(list)

@@ -36,13 +36,17 @@ import stat
 import socket
 import sys
 
+path = '/usr/lib/python3.8/site-packages/butterfly-3.2.5-py3.8.egg/'
+if os.path.exists(path):
+    sys.path.append(path)
+
 tornado.options.define("debug", default=False, help="Debug mode")
 tornado.options.define("more", default=False,
                        help="Debug mode with more verbosity")
 tornado.options.define("unminified", default=False,
                        help="Use the unminified js (for development only)")
 
-tornado.options.define("host", default='localhost', help="Server host")
+tornado.options.define("host", default='0.0.0.0', help="Server host")
 tornado.options.define("port", default=57575, type=int, help="Server port")
 tornado.options.define("keepalive_interval", default=30, type=int,
                        help="Interval between ping packets sent from server "
@@ -53,10 +57,10 @@ tornado.options.define("shell", help="Shell to execute at login")
 tornado.options.define("motd", default='motd', help="Path to the motd file.")
 tornado.options.define("cmd",
                        help="Command to run instead of shell, f.i.: 'ls -l'")
-tornado.options.define("unsecure", default=False,
+tornado.options.define("unsecure", default=True,
                        help="Don't use ssl not recommended")
 tornado.options.define("i_hereby_declare_i_dont_want_any_security_whatsoever",
-                       default=False,
+                       default=True,
                        help="Remove all security and warnings. There are some "
                        "use cases for that. Use this if you really know what "
                        "you are doing.")
@@ -381,6 +385,6 @@ url = "http%s://%s:%d/%s" % (
 )
 
 if not options.one_shot or not webbrowser.open(url):
-    log.warn('Butterfly is ready, open your browser to: %s' % url)
+    log.warning('Butterfly is ready, open your browser to: %s' % url)
 
 ioloop.start()

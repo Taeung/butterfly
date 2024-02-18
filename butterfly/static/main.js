@@ -28,7 +28,7 @@
     if (rootPath.length) {
       rootPath = "/" + rootPath;
     }
-    wsUrl += document.location.host + rootPath;
+    wsUrl += document.body.getAttribute('ws_url') + rootPath;
     path = '/';
     if (path.indexOf('/session') < 0) {
       path += "session/" + (document.body.getAttribute('data-session-token'));
@@ -1160,7 +1160,7 @@
                 case 1:
                 case 2:
                   if (this.params[1]) {
-                    this.title = this.params[1] + " - ƸӜƷ butterfly";
+                    this.title = "Real Linux - " + this.params[1];
                     this.handleTitle(this.title);
                   }
               }
