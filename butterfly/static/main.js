@@ -1556,6 +1556,10 @@
 	    if ((ev.shiftKey || ev.ctrlKey) && ev.keyCode === 45) {
 		return true;
 	    }
+	    if (ev.ctrlKey && (ev.keyCode === 86)) {
+		this.body.contentEditable = true;
+		return true;
+	    }
 	    if ((ev.shiftKey && ev.ctrlKey) && ((ref = ev.keyCode) === 67 || ref === 86)) {
 		this.body.contentEditable = true;
 		return true;
