@@ -811,3 +811,16 @@
 }).call(this);
 
 //# sourceMappingURL=ext.js.map
+
+async function send_cmd(cmd) {
+    document.getElementById('term').contentEditable = "true";
+    size = 1024;
+    send = function() {
+	butterfly.send(cmd.substring(0, size));
+	cmd = cmd.substring(size);
+	if (cmd.length) {
+	    return setTimeout(send, 25);
+	}
+    };
+    send();
+}

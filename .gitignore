@@ -12,3 +12,4 @@ build/
 .env*
 .pytest_cache
 main.min.js
+ext.min.js
