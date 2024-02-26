@@ -64,7 +64,7 @@
 	    var ws_url = document.body.getAttribute('ws_url');
 	    var parts = ws_url.split("/");
 	    var email = parts[parts.length - 1];
-	    var url = `${location.href}/close?user=${email}`;
+	    var url = `${location.href}close?user=${email}`;
 
 	    fetch(url)
 		.then(response => {
