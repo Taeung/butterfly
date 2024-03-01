@@ -1556,6 +1556,12 @@
 	    if ((ev.shiftKey || ev.ctrlKey) && ev.keyCode === 45) {
 		return true;
 	    }
+	    if (ev.metaKey && ev.ctrlKey) {
+                key = String.fromCharCode(ev.keyCode - 64);
+                this.showCursor();
+                this.send(key);
+                return cancel(ev);
+            }
 	    if (ev.ctrlKey && (ev.keyCode === 86)) {
 		this.body.contentEditable = true;
 		return true;
