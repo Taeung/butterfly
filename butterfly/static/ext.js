@@ -833,11 +833,20 @@ async function send_cmd(cmd) {
 }
 
 async function show_copied() {
-    let fullsize_width = window.document.body.clientWidth;
-    let fullsize_height = document.documentElement.scrollHeight;
+    let window_width = window.innerWidth;
+    let window_height = window.innerHeight;
+    let scrollX = window.scrollX;
+    let scrollY = window.scrollY;
     let copied = document.createElement("div");
 
-    copied.innerHTML = `<div style="height:64px;width:64px; border-radius: 15px; font-size: large; opacity: 0.75; padding: 0.2em 0.5em; position: absolute; user-select: none; transition: opacity 180ms ease-in 0s; color: rgb(16, 16, 16); background-color: rgb(240, 240, 240); top: 50%; left: 50%; transform: translate(-50%, -50%);"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <g> <path fill="none" d="M0 0h24v24H0z"/> <path d="M9.446 8.032L12 10.586l6.728-6.728a2 2 0 0 1 2.828 0l-12.11 12.11a4 4 0 1 1-1.414-1.414L10.586 12 8.032 9.446a4 4 0 1 1 1.414-1.414zm5.38 5.38l6.73 6.73a2 2 0 0 1-2.828 0l-5.317-5.316 1.415-1.415zm-7.412 3.174a2 2 0 1 0-2.828 2.828 2 2 0 0 0 2.828-2.828zm0-9.172a2 2 0 1 0-2.828-2.828 2 2 0 0 0 2.828 2.828z"/></g></svg></div>`;
+    // The size of copied icon
+    let elementWidth = 64;
+    let elementHeight = 64;
+
+    let centerX = (window_width - elementWidth) / 2 + scrollX;
+    let centerY = (window_height - elementHeight) / 2 + scrollY;
+
+    copied.innerHTML = `<div style="height:64px;width:64px; border-radius: 15px; font-size: large; opacity: 0.75; padding: 0.2em 0.5em; position: absolute; user-select: none; transition: opacity 180ms ease-in 0s; color: rgb(16, 16, 16); background-color: rgb(240, 240, 240); top: ${centerY}px; left: ${centerX}px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <g> <path fill="none" d="M0 0h24v24H0z"/> <path d="M9.446 8.032L12 10.586l6.728-6.728a2 2 0 0 1 2.828 0l-12.11 12.11a4 4 0 1 1-1.414-1.414L10.586 12 8.032 9.446a4 4 0 1 1 1.414-1.414zm5.38 5.38l6.73 6.73a2 2 0 0 1-2.828 0l-5.317-5.316 1.415-1.415zm-7.412 3.174a2 2 0 1 0-2.828 2.828 2 2 0 0 0 2.828-2.828zm0-9.172a2 2 0 1 0-2.828-2.828 2 2 0 0 0 2.828 2.828z"/></g></svg></div>`;
 
     document.body.appendChild(copied);
     await new Promise(resolve => setTimeout(resolve, 1000));
