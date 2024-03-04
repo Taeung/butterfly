@@ -1,8 +1,10 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
+	sigint, sigint_next_line,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
+    sigint = false;
     openTs = (new Date()).getTime();
     ws = {
 	shell: null,
@@ -892,6 +894,18 @@
 	    var attr, b64, c, ch, content, cs, i, k, l, len, line, m, mime, num, pt, ref, ref1, ref2, ref3, safe, type, valid, x, y;
 	    i = 0;
 	    l = data.length;
+
+	    // After sending Ctrl + c, print '^C'
+	    print_ctl_c = data.startsWith('^C');
+	    if (print_ctl_c)
+		sigint_next_line = true;
+
+	    // By SIGINT, stop writing stdout, but allow only ^C and a next line
+	    if (sigint && !print_ctl_c && !sigint_next_line)
+		return;
+
+	    if (!print_ctl_c && sigint_next_line)
+		sigint_next_line = false;
 	    while (i < l) {
 		ch = data.charAt(i);
 		switch (this.state) {
@@ -1562,6 +1576,7 @@
                 this.send(key);
                 return cancel(ev);
             }
+	    // Ctrl + v (paste)
 	    if (ev.ctrlKey && (ev.keyCode === 86)) {
 		this.body.contentEditable = true;
 		return true;
@@ -2068,6 +2083,11 @@
 	};
 
 	Terminal.prototype.send = function(data) {
+	    // Ctrl + c (SIGINT)
+	    if (data == String.fromCharCode(67-64))
+		sigint = true;
+	    else
+		sigint = false;
 	    return this.out(data);
 	};
 
