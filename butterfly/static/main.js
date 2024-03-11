@@ -1,10 +1,11 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line,
+	sigint, sigint_next_line, cmd_line,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
     sigint = false;
+    cmd_line = "";
     openTs = (new Date()).getTime();
     ws = {
 	shell: null,
@@ -2088,6 +2089,54 @@
 		sigint = true;
 	    else
 		sigint = false;
+
+	    c = data.charCodeAt(0)
+	    if (!data || c == 9 || c == 3) {
+		// 9(TAB), 3(Ctrl+c)
+	    }
+	    else if (c == 127) {
+		// 127 (Backspace)
+		cmd_line = cmd_line.slice(0, -1);
+	    } else {
+		cmd_line += data;
+	    }
+	    if (cmd_line == "\r")
+		cmd_line = cmd_line.slice(0, -1);
+
+	    if (location.href.includes("/level-up/") && data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
+		var parts = location.href.split("/");
+		parts.pop();
+		parts.pop();
+
+		var base_url =  parts.join("/");
+		var url = `${base_url}/cmd`;
+		var cmd = { 'cmd': cmd_line };
+
+		fetch(url, {
+		    method: 'POST',
+		    headers: {
+			'Content-Type': 'application/json',
+		    },
+		    body: JSON.stringify(cmd),
+		})
+		    .then(response => {
+			if (!response.ok) {
+			    throw new Error('Network response was not ok');
+			}
+			return response.json();
+		    })
+		    .then(data => {
+			data['cmd_check_list'].forEach(function(cmd_seq, index) {
+			    parent.set_cmd_status(`cmd-${cmd_seq}`, "completed");
+			});
+			var percent = data['progress_percent'];
+			parent.set_progress_percent(`${percent}`);
+		    })
+		    .catch(error => {
+			console.error('Fetch error:', error);
+		    });
+		cmd_line = "";
+	    }
 	    return this.out(data);
 	};
 
