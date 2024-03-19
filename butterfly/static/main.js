@@ -1,11 +1,15 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line,
+	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_pairs, up_arrow,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
+    cmd_pairs = 100000;
     sigint = false;
     cmd_line = "";
+    cmd_index = -1;
+    cmd_info_list = [];
+    up_arrow = false;
     openTs = (new Date()).getTime();
     ws = {
 	shell: null,
@@ -15,7 +19,7 @@
     $ = document.querySelectorAll.bind(document);
 
     document.addEventListener('DOMContentLoaded', function() {
-	var close, ctl, error, init_ctl_ws, init_shell_ws, open, path, reopenOnClose, rootPath, term, write, write_request, wsUrl;
+	var close, ctl, error, init_ctl_ws, init_shell_ws, open, path, reopenOnClose, rootPath, term, write, write_request, wsUrl, save_and_check_cmdline;
 	term = null;
 	if (location.protocol === 'https:') {
 	    wsUrl = 'wss://';
@@ -109,6 +113,19 @@
 	    }
 	};
 	write_request = function(e) {
+	    if (location.href.includes("/level-up/")) {
+		if (up_arrow == true) {
+		    cmd_line += e.data;
+		    up_arrow = false;
+		}
+		else if (cmd_pairs < 1 && cmd_info_list[cmd_index] && 'cmd_results' in cmd_info_list[cmd_index])
+		    cmd_info_list[cmd_index]['cmd_results'] += e.data;
+		else if (cmd_pairs == 1) {
+		    cmd_index++; // First, input command line
+		    cmd_info_list[cmd_index]['cmd_results'] = "";
+		}
+		cmd_pairs -= 1
+	    }
 	    return setTimeout(write, 1, e.data);
 	};
 	ctl = function(e) {
@@ -152,6 +169,80 @@
 
     isMobile = function() {
 	return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    };
+
+    check_status = function(cmd_info) {
+	for (const cmd of parent.cmd_list) {
+	    if (cmd.seq != cmd_info.cmd_seq)
+		continue;
+
+	    var cmd_results = cmd_info.cmd_results.toLowerCase();
+	    if (cmd.expected_results) {
+		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(expected_keyword))) {
+		    delete cmd_info.cmd_results;
+		    return 'completed';
+		} else
+		    return 'failed';
+	    }
+	    if (cmd.error_results) {
+		if (cmd.error_results.every(error_keyword => cmd_results.includes(error_keyword)))
+		    return 'failed';
+		else {
+		    delete cmd_info.cmd_results;
+		    return 'completed';
+		}
+	    }
+	    delete cmd_info.cmd_results;
+	    return null;
+	}
+	delete cmd_info.cmd_results;
+	return null;
+    };
+    save_and_check_cmdline = function(cmd_info) {
+	var parts = location.href.split("/");
+	parts.pop();
+	parts.pop();
+
+	var base_url =  parts.join("/");
+	var url = `${base_url}/cmd`;
+
+	fetch(url, {
+	    method: 'POST',
+	    headers: {
+		'Content-Type': 'application/json',
+	    },
+	    body: JSON.stringify(cmd_info),
+	})
+	    .then(response => {
+		if (!response.ok) {
+		    throw new Error('Network response was not ok');
+		}
+		return response.json();
+	    })
+	    .then(data => {
+		var my_cmd = data['my_cmd'];
+		var percent = data['progress_percent'];
+
+		if (my_cmd.cmd_seq != -1) {
+		    if (my_cmd.status) { // Finish a my_cmd (completed, failed or error)
+			parent.set_cmd_status(`cmd-${my_cmd.cmd_seq}`, my_cmd.status);
+			parent.set_progress_percent(`${percent}`);
+			cmd_info_list.shift();
+			cmd_index--;
+		    } else { // Check results
+			cmd_info['cmd_seq'] = my_cmd.cmd_seq;
+			cmd_info['status'] = check_status(cmd_info);
+			if (cmd_info['status'] != null) {
+			    save_and_check_cmdline(cmd_info);
+			    if ('cmd_results' in cmd_info)
+				delete cmd_info.cmd_results;
+			}
+		    }
+		}
+	    })
+	    .catch(error => {
+		console.error('Fetch error:', error);
+	    });
     };
 
     s = 0;
@@ -2090,52 +2181,30 @@
 	    else
 		sigint = false;
 
-	    c = data.charCodeAt(0)
-	    if (!data || c == 9 || c == 3) {
-		// 9(TAB), 3(Ctrl+c)
-	    }
-	    else if (c == 127) {
-		// 127 (Backspace)
-		cmd_line = cmd_line.slice(0, -1);
-	    } else {
-		cmd_line += data;
-	    }
-	    if (cmd_line == "\r")
-		cmd_line = cmd_line.slice(0, -1);
+	    if (location.href.includes("/level-up/")) {
+		var c = data.charCodeAt(0);
 
-	    if (location.href.includes("/level-up/") && data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
-		var parts = location.href.split("/");
-		parts.pop();
-		parts.pop();
+		if (data == "\x1b[A") {
+		    up_arrow = true;
+		    cmd_line = "";
+		}
+		else if (c == 127) {
+		    // 127 (Backspace)
+		    cmd_line = cmd_line.slice(0, -1);
+		} else if (c > 31) {
+		    cmd_line += data;
+		}
+		if (cmd_line == "\r")
+		    cmd_line = cmd_line.slice(0, -1);
 
-		var base_url =  parts.join("/");
-		var url = `${base_url}/cmd`;
-		var cmd = { 'cmd': cmd_line };
+		if (data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
+		    var cmd_info = { 'cmd_line': cmd_line };
 
-		fetch(url, {
-		    method: 'POST',
-		    headers: {
-			'Content-Type': 'application/json',
-		    },
-		    body: JSON.stringify(cmd),
-		})
-		    .then(response => {
-			if (!response.ok) {
-			    throw new Error('Network response was not ok');
-			}
-			return response.json();
-		    })
-		    .then(data => {
-			data['cmd_check_list'].forEach(function(cmd_seq, index) {
-			    parent.set_cmd_status(`cmd-${cmd_seq}`, "completed");
-			});
-			var percent = data['progress_percent'];
-			parent.set_progress_percent(`${percent}`);
-		    })
-		    .catch(error => {
-			console.error('Fetch error:', error);
-		    });
-		cmd_line = "";
+		    cmd_info_list.push(cmd_info);
+		    save_and_check_cmdline(cmd_info);
+		    cmd_line = "";
+		    cmd_pairs = 1;
+		}
 	    }
 	    return this.out(data);
 	};
