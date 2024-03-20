@@ -1,14 +1,15 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_pairs, up_arrow,
+	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_pairs, up_arrow, shell_prompts,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
-    cmd_pairs = 100000;
+    cmd_pairs = undefined;
     sigint = false;
     cmd_line = "";
     cmd_index = -1;
     cmd_info_list = [];
+    shell_prompts = [];
     up_arrow = false;
     openTs = (new Date()).getTime();
     ws = {
@@ -114,17 +115,27 @@
 	};
 	write_request = function(e) {
 	    if (location.href.includes("/level-up/")) {
+		if (cmd_pairs === undefined) {
+		    shell_prompts.push(e.data);
+		}
 		if (up_arrow == true) {
 		    cmd_line += e.data;
 		    up_arrow = false;
 		}
-		else if (cmd_pairs < 1 && cmd_info_list[cmd_index] && 'cmd_results' in cmd_info_list[cmd_index])
-		    cmd_info_list[cmd_index]['cmd_results'] += e.data;
-		else if (cmd_pairs == 1) {
+		else if (cmd_pairs == true && cmd_info_list[cmd_index]) {
+		    if ('cmd_results' in cmd_info_list[cmd_index]) {
+			var p = shell_prompts.join('')
+			if (p.includes(e.data) || e.data.includes(p))
+			    /* do not collect a shell prompt special string */;
+			else
+			    cmd_info_list[cmd_index]['cmd_results'] += e.data;
+		    }
+		}
+		else if (cmd_pairs == false) {
 		    cmd_index++; // First, input command line
 		    cmd_info_list[cmd_index]['cmd_results'] = "";
+		    cmd_pairs = true;
 		}
-		cmd_pairs -= 1
 	    }
 	    return setTimeout(write, 1, e.data);
 	};
@@ -185,7 +196,7 @@
 		    return 'failed';
 	    }
 	    if (cmd.error_results) {
-		if (cmd.error_results.every(error_keyword => cmd_results.includes(error_keyword)))
+		if (cmd.error_results.some(error_keyword => cmd_results.includes(error_keyword)))
 		    return 'failed';
 		else {
 		    delete cmd_info.cmd_results;
@@ -223,6 +234,7 @@
 		var my_cmd = data['my_cmd'];
 		var percent = data['progress_percent'];
 
+		cmd_pairs = null;
 		if (my_cmd.cmd_seq != -1) {
 		    if (my_cmd.status) { // Finish a my_cmd (completed, failed or error)
 			parent.set_cmd_status(`cmd-${my_cmd.cmd_seq}`, my_cmd.status);
@@ -238,6 +250,10 @@
 				delete cmd_info.cmd_results;
 			}
 		    }
+		} else {
+		    // Just a command line that are not included in CmdLine
+		    cmd_info_list.shift();
+		    cmd_index--;
 		}
 	    })
 	    .catch(error => {
@@ -2182,6 +2198,11 @@
 		sigint = false;
 
 	    if (location.href.includes("/level-up/")) {
+		if (cmd_pairs === undefined) {
+		    shell_prompts.shift();
+		    cmd_pairs = null;
+		}
+
 		var c = data.charCodeAt(0);
 
 		if (data == "\x1b[A") {
@@ -2203,7 +2224,7 @@
 		    cmd_info_list.push(cmd_info);
 		    save_and_check_cmdline(cmd_info);
 		    cmd_line = "";
-		    cmd_pairs = 1;
+		    cmd_pairs = false;
 		}
 	    }
 	    return this.out(data);
