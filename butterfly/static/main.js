@@ -1,6 +1,6 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_pairs, up_arrow, shell_prompts,
+	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_pairs, up_arrow, cmd_prompt, shell_prompts,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
@@ -804,11 +804,18 @@
 	};
 
 	Terminal.prototype.lineToDom = function(y, line, active) {
-	    var cursorX, eol, k, ref, results, x;
+	    var cursorX, eol, k, ref, results, x, cmd_prompt_str;
 	    if (active) {
 		cursorX = this.x;
 	    }
 	    results = [];
+	    cmd_prompt_str = "";
+	    for (const chars of line.chars) {
+		cmd_prompt_str += chars.ch;
+	    }
+	    if (cmd_pairs === undefined)
+		cmd_prompt = cmd_prompt_str.trimEnd();
+
 	    for (x = k = 0, ref = this.cols; 0 <= ref ? k <= ref : k >= ref; x = 0 <= ref ? ++k : --k) {
 		if (x !== this.cols) {
 		    results.push(this.charToDom(line.chars[x], line.chars[x - 1], x === cursorX));
@@ -2200,6 +2207,7 @@
 	    if (location.href.includes("/level-up/")) {
 		if (cmd_pairs === undefined) {
 		    shell_prompts.shift();
+		    shell_prompts.push(cmd_prompt);
 		    cmd_pairs = null;
 		}
 
@@ -2220,7 +2228,14 @@
 
 		if (data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
 		    var cmd_info = { 'cmd_line': cmd_line };
-
+		    var active_term_line = this.term.querySelector('div.line.active').innerHTML;
+		    active_term_line = active_term_line.replace(/<[^>]*>/g, "").trimEnd();
+		    active_term_line = active_term_line.replace(/(&nbsp;)+$/, '');
+		    active_term_line = active_term_line.split(cmd_prompt.replace(' ','&nbsp;')+'&nbsp;')[1]
+		    if (active_term_line) {
+			active_term_line = active_term_line.replace(/&nbsp;/g, ' ');
+			cmd_info['cmd_line'] = active_term_line;
+		    }
 		    cmd_info_list.push(cmd_info);
 		    save_and_check_cmdline(cmd_info);
 		    cmd_line = "";
