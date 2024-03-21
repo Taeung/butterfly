@@ -189,7 +189,8 @@
 
 	    var cmd_results = cmd_info.cmd_results.toLowerCase();
 	    if (cmd.expected_results) {
-		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(expected_keyword))) {
+		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(
+		    expected_keyword.toLowerCase()))) {
 		    delete cmd_info.cmd_results;
 		    return 'completed';
 		} else
