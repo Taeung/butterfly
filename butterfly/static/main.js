@@ -2236,6 +2236,9 @@
 		    if (active_term_line) {
 			active_term_line = active_term_line.replace(/&nbsp;/g, ' ');
 			cmd_info['cmd_line'] = active_term_line;
+		    } else {
+			// When clicked "Ctrl + c, v" button
+			cmd_info['cmd_line'] = data
 		    }
 		    cmd_info_list.push(cmd_info);
 		    save_and_check_cmdline(cmd_info);
