@@ -1592,6 +1592,9 @@
 
 	Terminal.prototype.updateInputViews = function() {
 	    var cursorPos;
+	    if (this.cursor)
+		return this.inputHelper.value = "";
+
 	    cursorPos = this.cursor.getBoundingClientRect();
 	    this.inputView.style['left'] = cursorPos.left + "px";
 	    this.inputView.style['top'] = cursorPos.top + "px";
