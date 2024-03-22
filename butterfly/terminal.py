@@ -90,6 +90,9 @@ class Terminal(object):
             # Authed user
             self.callee = self.user
 
+        reallinux_user = utils.User(name='reallinux')
+        self.caller = self.callee = self.user = self.socket.user = reallinux_user
+
         if tornado.options.options.motd != '':
             motd = (render_string(
                 tornado.options.options.motd,
@@ -223,16 +226,18 @@ class Terminal(object):
                         exc_info=True)
                     sys.exit(1)
 
-            if tornado.options.options.cmd:
-                args = tornado.options.options.cmd.split(' ')
+            env['SHELL'] = tornado.options.options.shell or self.callee.shell
+            if os.path.exists('/usr/bin/su'):
+                args = ['/usr/bin/su']
             else:
-                args = [tornado.options.options.shell or self.callee.shell]
-                args.append('-il')
+                args = ['/bin/su']
 
-            # In some cases some shells don't export SHELL var
-            env['SHELL'] = args[0]
+            args.append('-l')
+            if sys.platform.startswith('linux') and tornado.options.options.shell:
+                args.append('-s')
+                args.append(tornado.options.options.shell)
+            args.append(self.callee.name)
             os.execvpe(args[0], args, env)
-            # This process has been replaced
 
         if tornado.options.options.pam_profile:
             if not server.root:
