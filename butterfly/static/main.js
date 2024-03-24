@@ -1,10 +1,10 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_pairs, up_arrow, cmd_prompt, shell_prompts,
+	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_init, up_arrow, cmd_prompt, shell_prompts,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
-    cmd_pairs = undefined;
+    cmd_init = undefined;
     sigint = false;
     cmd_line = "";
     cmd_index = -1;
@@ -115,26 +115,24 @@
 	};
 	write_request = function(e) {
 	    if (location.href.includes("/level-up/")) {
-		if (cmd_pairs === undefined) {
+		if (cmd_init === undefined) {
 		    shell_prompts.push(e.data);
 		}
+
+		var cmd_info = cmd_info_list[cmd_index];
 		if (up_arrow == true) {
 		    cmd_line += e.data;
 		    up_arrow = false;
 		}
-		else if (cmd_pairs == true && cmd_info_list[cmd_index]) {
-		    if ('cmd_results' in cmd_info_list[cmd_index]) {
+		else if (cmd_info) {
+		    if ('cmd_results' in cmd_info) {
 			var p = shell_prompts.join('')
-			if (p.includes(e.data) || e.data.includes(p))
+			var start_with_esc = e.data.charCodeAt(0) == 13;
+			if (start_with_esc || p.includes(e.data) || e.data.includes(p))
 			    /* do not collect a shell prompt special string */;
 			else
-			    cmd_info_list[cmd_index]['cmd_results'] += e.data;
+			    cmd_info['cmd_results'] += e.data;
 		    }
-		}
-		else if (cmd_pairs == false) {
-		    cmd_index++; // First, input command line
-		    cmd_info_list[cmd_index]['cmd_results'] = "";
-		    cmd_pairs = true;
 		}
 	    }
 	    return setTimeout(write, 1, e.data);
@@ -183,6 +181,10 @@
     };
 
     check_status = function(cmd_info) {
+	/* Not results arrive yet, so need to recheck it*/
+	if (!cmd_info.cmd_results)
+	    return 'not-yet';
+
 	for (const cmd of parent.cmd_list) {
 	    if (cmd.seq != cmd_info.cmd_seq)
 		continue;
@@ -196,7 +198,9 @@
 		} else
 		    return 'failed';
 	    }
-	    if (cmd.error_results) {
+	    if (cmd.error_results && cmd.error_results.includes('no-err-check')) {
+		/* No error check */
+	    } else {
 		if (cmd.error_results.some(error_keyword => cmd_results.includes(error_keyword)))
 		    return 'failed';
 		else {
@@ -235,19 +239,18 @@
 		var my_cmd = data['my_cmd'];
 		var percent = data['progress_percent'];
 
-		cmd_pairs = null;
 		if (my_cmd.cmd_seq != -1) {
 		    if (my_cmd.status) { // Finish a my_cmd (completed, failed or error)
 			parent.set_cmd_status(`cmd-${my_cmd.cmd_seq}`, my_cmd.status);
 			parent.set_progress_percent(`${percent}`);
 			cmd_info_list.shift();
 			cmd_index--;
-		    } else { // Check results
+		    } else { // Check or recheck results
 			cmd_info['cmd_seq'] = my_cmd.cmd_seq;
 			cmd_info['status'] = check_status(cmd_info);
 			if (cmd_info['status'] != null) {
 			    save_and_check_cmdline(cmd_info);
-			    if ('cmd_results' in cmd_info)
+			    if (cmd_info['status'] != 'not-yet' && 'cmd_results' in cmd_info)
 				delete cmd_info.cmd_results;
 			}
 		    }
@@ -814,7 +817,7 @@
 	    for (const chars of line.chars) {
 		cmd_prompt_str += chars.ch;
 	    }
-	    if (cmd_pairs === undefined)
+	    if (cmd_init === undefined)
 		cmd_prompt = cmd_prompt_str.trimEnd();
 
 	    for (x = k = 0, ref = this.cols; 0 <= ref ? k <= ref : k >= ref; x = 0 <= ref ? ++k : --k) {
@@ -2209,10 +2212,10 @@
 		sigint = false;
 
 	    if (location.href.includes("/level-up/")) {
-		if (cmd_pairs === undefined) {
+		if (cmd_init === undefined) {
 		    shell_prompts.shift();
 		    shell_prompts.push(cmd_prompt);
-		    cmd_pairs = null;
+		    cmd_init = null;
 		}
 
 		var c = data.charCodeAt(0);
@@ -2243,10 +2246,11 @@
 			// When clicked "Ctrl + c, v" button
 			cmd_info['cmd_line'] = data
 		    }
+		    cmd_info['cmd_results'] = "";
 		    cmd_info_list.push(cmd_info);
 		    save_and_check_cmdline(cmd_info);
+		    cmd_index++;
 		    cmd_line = "";
-		    cmd_pairs = false;
 		}
 	    }
 	    return this.out(data);
