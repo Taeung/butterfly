@@ -160,7 +160,7 @@
 	init_ctl_ws();
 	return addEventListener('beforeunload', function() {
 	    if (!quit) {
-		return 'This will exit the terminal session';
+		// return 'This will exit the terminal session';
 	    }
 	});
     });

@@ -163,7 +163,7 @@
 
     addEventListener('beforeunload', function(e) {
         if (!(butterfly.body.classList.contains('dead') || location.href.indexOf('session') > -1)) {
-            return e.returnValue = 'This terminal is active and not in session. Are you sure you want to kill it?';
+            // return e.returnValue = 'This terminal is active and not in session. Are you sure you want to kill it?';
         }
     });
 
