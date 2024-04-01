@@ -823,6 +823,17 @@ async function send_cmd(cmd) {
     document.getElementById('term').contentEditable = "true";
     size = 1024;
     cmd = cmd.replace(/\r\n/g, '\n').replace(/\n/g, '\r');
+
+    if (cmd.endsWith("\r"))
+	cmd = cmd.slice(0, -1);
+
+    try {
+	window.focus();
+	await navigator.clipboard.writeText(cmd);
+    } catch (err) {
+	console.error('Failed to copy: ', err);
+    }
+
     send = function() {
 	butterfly.send(cmd.substring(0, size));
 	cmd = cmd.substring(size);
