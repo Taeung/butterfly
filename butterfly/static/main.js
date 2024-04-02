@@ -1,6 +1,6 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive,
+	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive, check_cmdline_status, save_cmdline,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
@@ -21,7 +21,7 @@
     $ = document.querySelectorAll.bind(document);
 
     document.addEventListener('DOMContentLoaded', function() {
-	var close, ctl, error, init_ctl_ws, init_shell_ws, open, path, reopenOnClose, rootPath, term, write, write_request, wsUrl, save_and_check_cmdline;
+	var close, ctl, error, init_ctl_ws, init_shell_ws, open, path, reopenOnClose, rootPath, term, write, write_request, wsUrl;
 	term = null;
 	if (location.protocol === 'https:') {
 	    wsUrl = 'wss://';
@@ -114,6 +114,15 @@
 		return term.write(data);
 	    }
 	};
+	get_active_term_line = function() {
+	    var term = document.getElementById('term');
+	    var active_term_line = term.querySelector('div.line.active').innerHTML;
+
+	    active_term_line = active_term_line.replace(/<[^>]*>/g, "").trimEnd();
+	    active_term_line = active_term_line.replace(/(&nbsp;)+$/, '');
+	    active_term_line = active_term_line.split(cmd_prompt.replace(' ','&nbsp;')+'&nbsp;')[1]
+	    return active_term_line;
+	};
 	write_request = function(e) {
 	    if (interactive) {
 		remove_popup(300);
@@ -133,14 +142,22 @@
 		    cmd_line += e.data;
 		    up_arrow = false;
 		}
-		else if (cmd_info) {
-		    if ('cmd_results' in cmd_info) {
-			var p = shell_prompts.join('');
-			var start_with_esc = e.data.charCodeAt(0) == 13;
-			if (start_with_esc || p.includes(e.data) || e.data.includes(p))
-			    /* do not collect a shell prompt special string */;
-			else
-			    cmd_info['cmd_results'] += e.data;
+		else if (cmd_info && 'cmd_results' in cmd_info) {
+		    var p = shell_prompts.join('');
+		    var start_with_esc = e.data.charCodeAt(0) == 13;
+
+		    /* do not collect a shell prompt special string */
+		    if (start_with_esc || p.includes(e.data) || e.data.includes(p)) {
+
+			/* Finish to check cmdline status */
+			if (e.data.trimEnd().endsWith(cmd_prompt)) {
+			    cmd_info['finish'] = true;
+			    cmd_info['status'] = check_cmdline_status(cmd_info);
+			    if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet')
+				save_cmdline(cmd_info);
+			}
+		    } else {
+			cmd_info['cmd_results'] += e.data;
 		    }
 		}
 	    }
@@ -189,9 +206,11 @@
 	return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     };
 
-    check_status = function(cmd_info) {
+    check_cmdline_status = function(cmd_info) {
 	/* Not results arrive yet, so need to recheck it*/
-	if (!cmd_info.cmd_results)
+	if (cmd_info.cmd_results === undefined || interactive)
+	    return 'not-yet';
+	if (cmd_info.finish === undefined || cmd_info.cmd_seq === undefined)
 	    return 'not-yet';
 
 	for (const cmd of parent.cmd_list) {
@@ -199,6 +218,7 @@
 		continue;
 
 	    var cmd_results = cmd_info.cmd_results.toLowerCase();
+	    /* Expected result check */
 	    if (cmd.expected_results) {
 		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(
 		    expected_keyword.toLowerCase()))) {
@@ -207,23 +227,24 @@
 		} else
 		    return 'failed';
 	    }
+
+	    /* Error check */
 	    if (cmd.error_results && cmd.error_results.includes('no-err-check')) {
 		/* No error check */
 	    } else {
 		if (cmd.error_results.some(error_keyword => cmd_results.includes(error_keyword)))
 		    return 'failed';
-		else {
-		    delete cmd_info.cmd_results;
-		    return 'completed';
-		}
 	    }
+
 	    delete cmd_info.cmd_results;
-	    return null;
+	    return 'completed';
+
 	}
+	// Bug case
 	delete cmd_info.cmd_results;
 	return null;
     };
-    save_and_check_cmdline = function(cmd_info) {
+    save_cmdline = function(cmd_info) {
 	var parts = location.href.split("/");
 	parts.pop();
 	parts.pop();
@@ -256,12 +277,9 @@
 			cmd_index--;
 		    } else { // Check or recheck results
 			cmd_info['cmd_seq'] = my_cmd.cmd_seq;
-			cmd_info['status'] = check_status(cmd_info);
-			if (cmd_info['status'] != null) {
-			    save_and_check_cmdline(cmd_info);
-			    if (cmd_info['status'] != 'not-yet' && 'cmd_results' in cmd_info)
-				delete cmd_info.cmd_results;
-			}
+			cmd_info['status'] = check_cmdline_status(cmd_info);
+			if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet')
+			    save_cmdline(cmd_info);
 		    }
 		} else {
 		    // Just a command line that are not included in CmdLine
@@ -2242,12 +2260,9 @@
 		if (cmd_line == "\r")
 		    cmd_line = cmd_line.slice(0, -1);
 
-		if (data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
+		if (!interactive && data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
 		    var cmd_info = { 'cmd_line': cmd_line };
-		    var active_term_line = this.term.querySelector('div.line.active').innerHTML;
-		    active_term_line = active_term_line.replace(/<[^>]*>/g, "").trimEnd();
-		    active_term_line = active_term_line.replace(/(&nbsp;)+$/, '');
-		    active_term_line = active_term_line.split(cmd_prompt.replace(' ','&nbsp;')+'&nbsp;')[1]
+		    var active_term_line = get_active_term_line();
 		    if (active_term_line) {
 			active_term_line = active_term_line.replace(/&nbsp;/g, ' ');
 			cmd_info['cmd_line'] = active_term_line;
@@ -2257,7 +2272,7 @@
 		    }
 		    cmd_info['cmd_results'] = "";
 		    cmd_info_list.push(cmd_info);
-		    save_and_check_cmdline(cmd_info);
+		    save_cmdline(cmd_info);
 		    cmd_index++;
 		    cmd_line = "";
 		}
