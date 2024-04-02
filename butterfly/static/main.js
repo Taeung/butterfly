@@ -1,6 +1,6 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_init, up_arrow, cmd_prompt, shell_prompts,
+	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
@@ -11,6 +11,7 @@
     cmd_info_list = [];
     shell_prompts = [];
     up_arrow = false;
+    interactive = false;
     openTs = (new Date()).getTime();
     ws = {
 	shell: null,
@@ -114,6 +115,14 @@
 	    }
 	};
 	write_request = function(e) {
+	    if (interactive) {
+		remove_popup(300);
+		interactive = false;
+	    } else if (e.data.toLowerCase().includes('password for') || e.data.toLowerCase().includes('password:')) {
+		show_popup('password', null);
+		interactive = true;
+	    }
+
 	    if (location.href.includes("/level-up/")) {
 		if (cmd_init === undefined) {
 		    shell_prompts.push(e.data);
@@ -126,7 +135,7 @@
 		}
 		else if (cmd_info) {
 		    if ('cmd_results' in cmd_info) {
-			var p = shell_prompts.join('')
+			var p = shell_prompts.join('');
 			var start_with_esc = e.data.charCodeAt(0) == 13;
 			if (start_with_esc || p.includes(e.data) || e.data.includes(p))
 			    /* do not collect a shell prompt special string */;
