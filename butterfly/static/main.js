@@ -288,7 +288,7 @@
 			cmd_info_list.shift();
 			cmd_index--;
 			if (data['progress_percent'] == 100)
-			    parent.show_levelup_modal(data['is_levelup']);
+			    parent.show_levelup_modal(data.my_level, data.is_levelup);
 		    } else { // Check or recheck results
 			cmd_info['cmd_seq'] = my_cmd.cmd_seq;
 			cmd_info['status'] = check_cmdline_status(cmd_info);
