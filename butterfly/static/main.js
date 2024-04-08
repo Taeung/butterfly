@@ -114,14 +114,20 @@
 		return term.write(data);
 	    }
 	};
-	get_active_term_line = function() {
+	get_active_cmd_prompt = function() {
 	    var term = document.getElementById('term');
 	    var active_term_line = term.querySelector('div.line.active').innerHTML;
+	    var active_cmd_prompt = null;
 
 	    active_term_line = active_term_line.replace(/<[^>]*>/g, "").trimEnd();
-	    active_term_line = active_term_line.replace(/(&nbsp;)+$/, '');
-	    active_term_line = active_term_line.split(cmd_prompt.replace(' ','&nbsp;')+'&nbsp;')[1]
-	    return active_term_line;
+	    active_cmd_prompt = active_term_line.replace(/(&nbsp;)+$/, '');
+	    return active_cmd_prompt;
+	};
+	get_active_cmdline = function() {
+	    var active_term_line = get_active_cmd_prompt();
+
+	    active_cmdline = active_term_line.split(cmd_prompt.replace(' ','&nbsp;')+'&nbsp;')[1]
+	    return active_cmdline;
 	};
 	write_request = function(e) {
 	    if (interactive) {
@@ -144,21 +150,27 @@
 		}
 		else if (cmd_info && 'cmd_results' in cmd_info) {
 		    var p = shell_prompts.join('');
-		    var start_with_esc = e.data.charCodeAt(0) == 13;
+		    var result_lines = e.data.trimStart().split('\n');
+		    var line_count = result_lines.length;
+		    var last_line = result_lines.pop();
+		    var start_with_esc = last_line.charCodeAt(0) == 13;
 
-		    /* do not collect a shell prompt special string */
-		    if (start_with_esc || p.includes(e.data) || e.data.includes(p)) {
-
-			/* Finish to check cmdline status */
-			if (e.data.trimEnd().endsWith(cmd_prompt)) {
-			    cmd_info['finish'] = true;
-			    cmd_info['status'] = check_cmdline_status(cmd_info);
-			    if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet')
-				save_cmdline(cmd_info);
-			}
+		    if (line_count == 1 && (start_with_esc ||
+					    p.includes(last_line) ||
+					    last_line.includes(p))) {
+			/* do not collect a shell prompt special string */;
 		    } else {
-			cmd_info['cmd_results'] += e.data;
+			var result_line = result_lines.join('');
+
+			if (last_line.trimEnd().endsWith(cmd_prompt))
+			    cmd_info['cmd_results'] += result_line;
+			else
+			    cmd_info['cmd_results'] += e.data;
 		    }
+
+		    /* Finish to check cmdline status */
+		    if (last_line.trimEnd().endsWith(cmd_prompt))
+			finish_cmdline();
 		}
 	    }
 	    return setTimeout(write, 1, e.data);
@@ -292,6 +304,17 @@
 	    .catch(error => {
 		console.error('Fetch error:', error);
 	    });
+    };
+
+    finish_cmdline = function() {
+	var cmd_info = cmd_info_list[cmd_index];
+	if (!cmd_info)
+	    return;
+
+	cmd_info['finish'] = true;
+	cmd_info['status'] = check_cmdline_status(cmd_info);
+	if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet')
+	    save_cmdline(cmd_info);
     };
 
     s = 0;
@@ -923,6 +946,8 @@
 
 	Terminal.prototype.refresh = function(force) {
 	    var dom, ref;
+	    var cmd_info = cmd_info_list[cmd_index];
+
 	    if (force == null) {
 		force = false;
 	    }
@@ -938,6 +963,16 @@
 	    this.writeDom(dom);
 	    this.nativeScrollTo();
 	    this.updateInputViews();
+
+	    if (cmd_info && cmd_info.changed_pwd == true) {
+		var active_cmd_prompt = get_active_cmd_prompt();
+		var new_cmd_prompt = active_cmd_prompt.replace('&nbsp;', ' ').trimEnd();
+
+		if (new_cmd_prompt.length > 0)
+		    cmd_prompt = new_cmd_prompt;
+		finish_cmdline();
+	    }
+
 	    return this.emit('refresh');
 	};
 
@@ -1624,7 +1659,7 @@
 
 	Terminal.prototype.updateInputViews = function() {
 	    var cursorPos;
-	    if (this.cursor)
+	    if (!this.cursor)
 		return this.inputHelper.value = "";
 
 	    cursorPos = this.cursor.getBoundingClientRect();
@@ -2264,14 +2299,19 @@
 
 		if (!interactive && data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
 		    var cmd_info = { 'cmd_line': cmd_line };
-		    var active_term_line = get_active_term_line();
-		    if (active_term_line) {
-			active_term_line = active_term_line.replace(/&nbsp;/g, ' ');
-			cmd_info['cmd_line'] = active_term_line;
+		    var active_cmdline = get_active_cmdline();
+		    if (active_cmdline) {
+			active_cmdline = active_cmdline.replace(/&nbsp;/g, ' ');
+			cmd_info['cmd_line'] = active_cmdline;
 		    } else {
 			// When clicked "Ctrl + c, v" button
 			cmd_info['cmd_line'] = data
 		    }
+		    if (cmd_info.cmd_line.includes("cd ") ||
+			cmd_info.cmd_line.includes("pushd ") ||
+			cmd_info.cmd_line.includes("popd "))
+			cmd_info['changed_pwd'] = true
+
 		    cmd_info['cmd_results'] = "";
 		    cmd_info_list.push(cmd_info);
 		    save_cmdline(cmd_info);
