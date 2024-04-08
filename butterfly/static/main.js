@@ -134,7 +134,7 @@
 		remove_popup(300);
 		interactive = false;
 	    } else if (e.data.toLowerCase().includes('password for') || e.data.toLowerCase().includes('password:')) {
-		show_popup('password', null);
+		show_popup('password');
 		interactive = true;
 	    }
 
@@ -166,8 +166,10 @@
 			    cmd_info['cmd_results'] += result_line;
 			else
 			    cmd_info['cmd_results'] += e.data;
-		    }
 
+			if (!interactive)
+			    show_popup('progress');
+		    }
 		    /* Finish to check cmdline status */
 		    if (last_line.trimEnd().endsWith(cmd_prompt))
 			finish_cmdline();
@@ -292,8 +294,10 @@
 		    } else { // Check or recheck results
 			cmd_info['cmd_seq'] = my_cmd.cmd_seq;
 			cmd_info['status'] = check_cmdline_status(cmd_info);
-			if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet')
+			if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet') {
 			    save_cmdline(cmd_info);
+			    remove_popup(300);
+			}
 		    }
 		} else {
 		    // Just a command line that are not included in CmdLine
@@ -313,8 +317,10 @@
 
 	cmd_info['finish'] = true;
 	cmd_info['status'] = check_cmdline_status(cmd_info);
-	if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet')
+	if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet') {
 	    save_cmdline(cmd_info);
+	    remove_popup(300);
+	}
     };
 
     s = 0;
