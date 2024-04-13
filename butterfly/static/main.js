@@ -114,14 +114,25 @@
 		return term.write(data);
 	    }
 	};
-	get_term_cmd_prompt = function(cmd_info) {
-	    if (!cmd_info.changed_pwd)
-		return null;
+	starts_with_cmd_prompt = function(line) {
+	    var current_prompt_html = cmd_prompt.replace(' ','&nbsp;')+'&nbsp;';
+	    return line.startsWith(current_prompt_html)
+	};
+	is_cd_cmdline = function(line) {
+	    var current_prompt_html = cmd_prompt.replace(' ','&nbsp;')+'&nbsp;';
+	    var prompt = line.split(current_prompt_html)[1]
+	    if (prompt && (prompt.startsWith("cd&nbsp;") ||
+			   prompt.startsWith("pushd&nbsp;") ||
+			   prompt.startsWith("popd&nbsp;")))
+		return true;
+	    return false;
 
+	};
+	get_cmd_prompt = function(cmd_info) {
 	    const lines = document.querySelectorAll('#term div.line');
 	    let active_index = -1;
-	    var prompt_html = cmd_prompt.replace(' ','&nbsp;')+'&nbsp;';
 	    var term_last_line = "";
+	    var current_cmd_prompt = null;
 
 	    lines.forEach((line, index) => {
 		if (line.className.includes('line active')) {
@@ -134,32 +145,25 @@
 
 	    for (let i = active_index; i >= 0; i--) {
 		var line = lines[i].innerHTML;
-		var p = line.split(prompt_html)[1]
-		if (p && (p.startsWith("cd&nbsp;") ||
-			  p.startsWith("pushd&nbsp;") ||
-			  p.startsWith("popd&nbsp;")))
+
+		if (cmd_info.changed_pwd && is_cd_cmdline(line))
 		    break;
+
 		line = line.replace(/<[^>]*>/g, "").trimEnd();
 		line = line.replace(/(&nbsp;)+$/, '');
 		term_last_line += line;
+
+		if (!cmd_info.changed_pwd && starts_with_cmd_prompt(line))
+		    break;
 	    }
 
-	    term_last_line = term_last_line.replace('&nbsp;', ' ').trimEnd();
-	    return term_last_line;
+	    current_cmd_prompt = term_last_line.replace(/&nbsp;/g, ' ').trimEnd();
+	    return current_cmd_prompt;
 	};
-	get_active_cmd_prompt = function() {
-	    var term = document.getElementById('term');
-	    var active_term_line = term.querySelector('div.line.active').innerHTML;
-	    var active_cmd_prompt = null;
+	get_active_cmdline = function(cmd_info) {
+	    var active_term_line = get_cmd_prompt(cmd_info);
 
-	    active_term_line = active_term_line.replace(/<[^>]*>/g, "").trimEnd();
-	    active_cmd_prompt = active_term_line.replace(/(&nbsp;)+$/, '');
-	    return active_cmd_prompt;
-	};
-	get_active_cmdline = function() {
-	    var active_term_line = get_active_cmd_prompt();
-
-	    active_cmdline = active_term_line.split(cmd_prompt.replace(' ','&nbsp;')+'&nbsp;')[1]
+	    active_cmdline = active_term_line.split(cmd_prompt+' ')[1]
 	    return active_cmdline;
 	};
 	write_request = function(e) {
@@ -1004,7 +1008,7 @@
 	    this.updateInputViews();
 
 	    if (cmd_info && cmd_info.changed_pwd == true) {
-		var new_cmd_prompt = get_term_cmd_prompt(cmd_info);
+		var new_cmd_prompt = get_cmd_prompt(cmd_info);
 
 		if (new_cmd_prompt)
 		    cmd_prompt = new_cmd_prompt;
@@ -2337,9 +2341,8 @@
 
 		if (!interactive && data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
 		    var cmd_info = { 'cmd_line': cmd_line };
-		    var active_cmdline = get_active_cmdline();
+		    var active_cmdline = get_active_cmdline(cmd_info);
 		    if (active_cmdline) {
-			active_cmdline = active_cmdline.replace(/&nbsp;/g, ' ');
 			cmd_info['cmd_line'] = active_cmdline;
 		    } else {
 			// When clicked "Ctrl + c, v" button
