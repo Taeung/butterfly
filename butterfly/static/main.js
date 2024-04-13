@@ -114,6 +114,39 @@
 		return term.write(data);
 	    }
 	};
+	get_term_cmd_prompt = function(cmd_info) {
+	    if (!cmd_info.changed_pwd)
+		return null;
+
+	    const lines = document.querySelectorAll('#term div.line');
+	    let active_index = -1;
+	    var prompt_html = cmd_prompt.replace(' ','&nbsp;')+'&nbsp;';
+	    var term_last_line = "";
+
+	    lines.forEach((line, index) => {
+		if (line.className.includes('line active')) {
+		    active_index = index;
+		}
+	    });
+
+	    if (active_index == -1)
+		return null;
+
+	    for (let i = active_index; i >= 0; i--) {
+		var line = lines[i].innerHTML;
+		var p = line.split(prompt_html)[1]
+		if (p && (p.startsWith("cd&nbsp;") ||
+			  p.startsWith("pushd&nbsp;") ||
+			  p.startsWith("popd&nbsp;")))
+		    break;
+		line = line.replace(/<[^>]*>/g, "").trimEnd();
+		line = line.replace(/(&nbsp;)+$/, '');
+		term_last_line += line;
+	    }
+
+	    term_last_line = term_last_line.replace('&nbsp;', ' ').trimEnd();
+	    return term_last_line;
+	};
 	get_active_cmd_prompt = function() {
 	    var term = document.getElementById('term');
 	    var active_term_line = term.querySelector('div.line.active').innerHTML;
@@ -153,7 +186,7 @@
 		    var result_lines = e.data.trimStart().split('\n');
 		    var line_count = result_lines.length;
 		    var last_line = result_lines.pop();
-		    var start_with_esc = last_line.charCodeAt(0) == 13;
+		    var start_with_esc = last_line.charCodeAt(0) == 27;
 
 		    if (line_count == 1 && (start_with_esc ||
 					    p.includes(last_line) ||
@@ -971,10 +1004,9 @@
 	    this.updateInputViews();
 
 	    if (cmd_info && cmd_info.changed_pwd == true) {
-		var active_cmd_prompt = get_active_cmd_prompt();
-		var new_cmd_prompt = active_cmd_prompt.replace('&nbsp;', ' ').trimEnd();
+		var new_cmd_prompt = get_term_cmd_prompt(cmd_info);
 
-		if (new_cmd_prompt.length > 0)
+		if (new_cmd_prompt)
 		    cmd_prompt = new_cmd_prompt;
 		finish_cmdline();
 	    }
