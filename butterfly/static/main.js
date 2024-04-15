@@ -1,14 +1,13 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line, cmd_index, cmd_info_list, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive, check_cmdline_status, save_cmdline,
+	sigint, sigint_next_line, cmd_line, cmd_info_queue, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive, check_cmdline_status, save_cmdline,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
     cmd_init = undefined;
     sigint = false;
     cmd_line = "";
-    cmd_index = -1;
-    cmd_info_list = [];
+    cmd_info_queue = {};
     shell_prompts = [];
     up_arrow = false;
     interactive = false;
@@ -109,9 +108,9 @@
 		return init_shell_ws();
 	    }, 100);
 	};
-	write = function(data) {
+	write = function(data, cmd_info=null) {
 	    if (term) {
-		return term.write(data);
+		return term.write(data, cmd_info);
 	    }
 	};
 	starts_with_cmd_prompt = function(line) {
@@ -129,16 +128,19 @@
 
 	};
 	get_cmd_prompt = function(cmd_info) {
-	    const lines = document.querySelectorAll('#term div.line');
+	    const term = document.getElementById('term');
+	    const lines = term.querySelectorAll('div');
 	    let active_index = -1;
 	    var term_last_line = "";
 	    var current_cmd_prompt = null;
 
-	    lines.forEach((line, index) => {
-		if (line.className.includes('line active')) {
-		    active_index = index;
+	    for (let i = lines.length-1; i >= 0; i--) {
+		var line = lines[i];
+		if (line.className.includes('active')) {
+		    active_index = i;
+		    break;
 		}
-	    });
+	    }
 
 	    if (active_index == -1)
 		return null;
@@ -166,31 +168,66 @@
 	    active_cmdline = active_term_line.split(cmd_prompt+' ')[1]
 	    return active_cmdline;
 	};
+
+	find_cmd_index = function(cmd_index) {
+	    if (cmd_info_queue[cmd_index] !== undefined)
+		return true
+	    else
+		return false;
+	};
+
+	get_max_index_key = function() {
+	    var index_keys = Object.keys(cmd_info_queue).map(index_key => parseInt(index_key));
+	    var max_index_key = -1;
+
+	    if (index_keys.length > 0)
+		max_index_key = Math.max(...index_keys);
+
+	    return max_index_key;
+	};
+
 	write_request = function(e) {
+	    //console.log("--- (Just) write_request ---");
 	    if (interactive) {
+		//console.log("!!!!!!!!!! remove interactive");
 		remove_popup(300);
 		interactive = false;
+		return setTimeout(write, 1, e.data);
 	    } else if (e.data.toLowerCase().includes('password for') || e.data.toLowerCase().includes('password:')) {
+		//console.log("!!!!!!!! start interactive");
 		show_popup('password');
 		interactive = true;
+		return setTimeout(write, 1, e.data);
 	    }
 
 	    if (location.href.includes("/level-up/")) {
-		if (cmd_init === undefined) {
+		if (cmd_init === undefined)
 		    shell_prompts.push(e.data);
-		}
 
-		var cmd_info = cmd_info_list[cmd_index];
 		if (up_arrow == true) {
 		    cmd_line += e.data;
 		    up_arrow = false;
 		}
-		else if (cmd_info && 'cmd_results' in cmd_info) {
+
+
+		/* Last index key is current cmd_info */
+		var cmd_info = cmd_info_queue[get_max_index_key()];
+
+		if (!cmd_info)
+		    return setTimeout(write, 1, e.data);
+
+		if (!cmd_info.finish) {
+		    //console.log(`////////// write_request() ${cmd_info.cmd_line}(${cmd_info.index})`);
 		    var p = shell_prompts.join('');
 		    var result_lines = e.data.trimStart().split('\n');
 		    var line_count = result_lines.length;
 		    var last_line = result_lines.pop();
 		    var start_with_esc = last_line.charCodeAt(0) == 27;
+
+		    if (!cmd_info.progress) {
+			show_popup('progress');
+			cmd_info.progress = true;
+		    }
 
 		    if (line_count == 1 && (start_with_esc ||
 					    p.includes(last_line) ||
@@ -200,16 +237,23 @@
 			var result_line = result_lines.join('');
 
 			if (last_line.trimEnd().endsWith(cmd_prompt))
-			    cmd_info['cmd_results'] += result_line;
+			    cmd_info.cmd_results += result_line;
 			else
-			    cmd_info['cmd_results'] += e.data;
+			    cmd_info.cmd_results += e.data;
 
-			if (!interactive)
-			    show_popup('progress');
+			/* Not yet, begin_return is arrived */
+			if (cmd_info.cmd_seq && cmd_info.cmd_seq != -1) {
+			    check_result_status(cmd_info);
+			    delete cmd_info.cmd_results;
+			    cmd_info.cmd_results = "";
+			}
 		    }
 		    /* Finish to check cmdline status */
-		    if (last_line.trimEnd().endsWith(cmd_prompt))
-			finish_cmdline();
+		    if (last_line.trimEnd().endsWith(cmd_prompt)) {
+			cmd_info.finish = true;
+			//console.log("!!!!!!!!!!!!!!!!!!!!!! finish checked @@@@@@@@@@@@@@@@@");
+		    }
+		    return setTimeout(write, 1, e.data, cmd_info);
 		}
 	    }
 	    return setTimeout(write, 1, e.data);
@@ -257,45 +301,39 @@
 	return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     };
 
-    check_cmdline_status = function(cmd_info) {
-	/* Not results arrive yet, so need to recheck it*/
-	if (cmd_info.cmd_results === undefined || interactive)
-	    return 'not-yet';
-	if (cmd_info.finish === undefined || cmd_info.cmd_seq === undefined)
-	    return 'not-yet';
-
+    check_result_status = function(cmd_info) {
+	//console.log(`////////// check_result_status() ${cmd_info.cmd_line}: ${cmd_info.cmd_seq} (${cmd_info.index})`);
 	for (const cmd of parent.cmd_list) {
 	    if (cmd.seq != cmd_info.cmd_seq)
 		continue;
 
 	    var cmd_results = cmd_info.cmd_results.toLowerCase();
+
+	    if (cmd_info.status == 'failed')
+		return;
+
 	    /* Expected result check */
 	    if (cmd.expected_results) {
 		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(
-		    expected_keyword.toLowerCase()))) {
-		    delete cmd_info.cmd_results;
-		    return 'completed';
-		} else
-		    return 'failed';
+		    expected_keyword.toLowerCase())))
+		    cmd_info.status = 'completed';
 	    }
 
 	    /* Error check */
 	    if (cmd.error_results && cmd.error_results.includes('no-err-check')) {
-		/* No error check */
-	    } else {
-		if (cmd.error_results.some(error_keyword => cmd_results.includes(error_keyword)))
-		    return 'failed';
+		/* No error check */;
+	    } else if (cmd.error_results.some(error_keyword => cmd_results.includes(error_keyword))) {
+		cmd_info.status = 'failed';
 	    }
 
-	    delete cmd_info.cmd_results;
-	    return 'completed';
-
+	    return;
 	}
-	// Bug case
-	delete cmd_info.cmd_results;
-	return null;
+	/* Bug case */
+	console.log("Cannot find ${cmd_info.cmd_seq}: ${cmd_info.cmd_line}");
+	return;
     };
-    save_cmdline = function(cmd_info) {
+
+    save_cmdinfo = function(cmd_info, return_fn) {
 	var parts = location.href.split("/");
 	parts.pop();
 	parts.pop();
@@ -317,47 +355,95 @@
 		return response.json();
 	    })
 	    .then(data => {
-		var my_cmd = data['my_cmd'];
-		var percent = data['progress_percent'];
-
-		if (my_cmd.cmd_seq != -1) {
-		    if (my_cmd.status) { // Finish a my_cmd (completed, failed or error)
-			parent.set_cmd_status(`cmd-${my_cmd.cmd_seq}`, my_cmd.status);
-			parent.set_progress_percent(`${percent}`);
-			cmd_info_list.shift();
-			cmd_index--;
-			if (data['progress_percent'] == 100)
-			    parent.show_levelup_modal(data.my_level, data.is_levelup);
-		    } else { // Check or recheck results
-			cmd_info['cmd_seq'] = my_cmd.cmd_seq;
-			cmd_info['status'] = check_cmdline_status(cmd_info);
-			if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet') {
-			    save_cmdline(cmd_info);
-			    remove_popup(300);
-			}
-		    }
-		} else {
-		    // Just a command line that are not included in CmdLine
-		    cmd_info_list.shift();
-		    cmd_index--;
-		}
+		return_fn(cmd_info, data);
 	    })
 	    .catch(error => {
 		console.error('Fetch error:', error);
 	    });
     };
 
-    finish_cmdline = function() {
-	var cmd_info = cmd_info_list[cmd_index];
-	if (!cmd_info)
+    delete_cmd_info = function(cmd_info) {
+	//console.log(`////////// delete_cmd_info() ${cmd_info.cmd_line}(${cmd_info.cmd_seq})(${cmd_info.index})`)
+	delete cmd_info_queue[cmd_info.index];
+	remove_popup(300);
+    };
+
+    end_cmdinfo_return = function(cmd_info, data) {
+	//console.log(`////////// end_cmdinfo_return() ${cmd_info.cmd_line}(${cmd_info.cmd_seq})(${cmd_info.index})`);
+	var my_cmd = data['my_cmd'];
+	var percent = data['progress_percent'];
+
+	parent.set_cmd_status(`cmd-${my_cmd.cmd_seq}`, my_cmd.status);
+	parent.set_progress_percent(`${percent}`);
+	if (data['progress_percent'] == 100)
+	    parent.show_levelup_modal(data.my_level, data.is_levelup);
+
+	delete_cmd_info(cmd_info);
+    };
+
+    end_cmdinfo = function(cmd_info) {
+	/* This function will be called only once,
+	 * Check if this cmd_info is already deleted or not yet */
+	//var cmd_info = cmd_info_queue[cmd_info.index];
+	if (!cmd_info.progress)
 	    return;
 
-	cmd_info['finish'] = true;
-	cmd_info['status'] = check_cmdline_status(cmd_info);
-	if (cmd_info['status'] != null && cmd_info['status'] != 'not-yet') {
-	    save_cmdline(cmd_info);
-	    remove_popup(300);
+	cmd_info.progress = false;
+
+	//console.log(`////////// end_cmdinfo() ${cmd_info.cmd_line}(${cmd_info.cmd_seq})(${cmd_info.index})`);
+	if (cmd_info.cmd_seq == -1) {
+	    console.log("!!!!!!! Just delete_cmd_info");
+	    delete_cmd_info(cmd_info);
+	    return;
 	}
+
+	if (!cmd_info.status) {
+	    if (!cmd_info.expected_results)
+		cmd_info.status = 'completed';
+	    else
+		cmd_info.status = 'failed';
+	}
+	save_cmdinfo(cmd_info, end_cmdinfo_return);
+    };
+
+    begin_cmdinfo_return = function(cmd_info, data) {
+	//console.log(`////////// begin_cmdinfo_return() ${cmd_info.cmd_line}(${cmd_info.index})`);
+	var my_cmd = data['my_cmd'];
+	var percent = data['progress_percent'];
+
+	cmd_info.cmd_seq = my_cmd.cmd_seq;
+	cmd_info.expected_results = my_cmd.expected_results;
+	//console.log(`!!!!!!!!!!!! (Initialization completed) =>(cmd_seq: ${my_cmd.cmd_seq}) !!!!!!!!!!!!!`);
+
+	/* typo-error checked from server */
+	if (my_cmd.status == 'typo-error') {
+	    //console.log("!!!!!!!!! typo-error case !!!!!!! ");
+	    cmd_info.status = my_cmd.status;
+	    if (cmd_info.finish != true) {
+		/* Not yet, write_request is finished */
+		return;
+	    }
+	}
+
+	/* Already finishesd by fast write_request without check_result_status */
+	if (cmd_info.finish == true) {
+	    //console.log("!!!!!!! Already finishesd by fast write_request without check_result_status");
+	    /* Just cmdinfo(-1) skipping to check results */
+	    if (cmd_info.cmd_seq != -1)
+		check_result_status(cmd_info);
+
+	    //console.log(`Already finished: cmd_info.status(${cmd_info.status})`);
+	    end_cmdinfo(cmd_info);
+	    return;
+	}
+
+	/* It will be finished on the final refresh of write_request */
+	return;
+    };
+
+    begin_cmdinfo = function(cmd_info) {
+	//console.log(`////////// begin_cmdinfo() ${cmd_info.cmd_line}(${cmd_info.index})`);
+	save_cmdinfo(cmd_info, begin_cmdinfo_return);
     };
 
     s = 0;
@@ -987,13 +1073,9 @@
 	    return this.screen = this.screen.slice(-this.rows);
 	};
 
-	Terminal.prototype.refresh = function(force) {
+	Terminal.prototype.refresh = function(force=false, cmd_info=null) {
 	    var dom, ref;
-	    var cmd_info = cmd_info_list[cmd_index];
 
-	    if (force == null) {
-		force = false;
-	    }
 	    if (this.active != null) {
 		this.active.classList.remove('active');
 	    }
@@ -1007,12 +1089,33 @@
 	    this.nativeScrollTo();
 	    this.updateInputViews();
 
-	    if (cmd_info && cmd_info.changed_pwd == true) {
-		var new_cmd_prompt = get_cmd_prompt(cmd_info);
+	    if (!interactive && cmd_info){
+		//console.log(`////////// refresh() ${cmd_info.cmd_line}(${cmd_info.cmd_seq})(${cmd_info.index})`);
+		if (cmd_info.changed_pwd == true) {
+		    var new_cmd_prompt = get_cmd_prompt(cmd_info);
 
-		if (new_cmd_prompt)
-		    cmd_prompt = new_cmd_prompt;
-		finish_cmdline();
+		    if (new_cmd_prompt) {
+			cmd_prompt = new_cmd_prompt;
+			cmd_info.finish = true;
+			cmd_info.changed_pwd = false;
+			//console.log(`!!!!!!!! new_cmd_prompt: ${cmd_prompt}`);
+		    }
+		}
+		/* The end condition: initialized cmd_seq and finish status */
+		if (cmd_info.cmd_seq) {
+		    if (!cmd_info.finish)
+			//console.log("!!!!!!!!!!! Not Yet (finish)!!!!!!!!!!! ");
+			/* Not yet, multiple write_request are finished */;
+		    else
+			end_cmdinfo(cmd_info);
+
+		    /* Not end_cmdinfo() is finally called case:
+		     * The reason is uninitialized cmd_seq on begin_cmdinfo_return(),
+		     * so finally begin_cmdinfo_return() will call end_cmdinfo().
+		     */
+		} else {
+		    ;//console.log("!!!!!!!!!!! Not Yet (Init cmd_seq) !!!!!!!!!!! ");
+		}
 	    }
 
 	    return this.emit('refresh');
@@ -1115,7 +1218,9 @@
 	    }
 	};
 
-	Terminal.prototype.write = function(data) {
+	Terminal.prototype.write = function(data, cmd_info=null) {
+	    if (cmd_info)
+		;//console.log(`////////// write() ${cmd_info.cmd_line}(${cmd_info.index})`);
 	    var attr, b64, c, ch, content, cs, i, k, l, len, line, m, mime, num, pt, ref, ref1, ref2, ref3, safe, type, valid, x, y;
 	    i = 0;
 	    l = data.length;
@@ -1692,7 +1797,7 @@
 		i++;
 	    }
 	    this.screen[this.y + this.shift].dirty = true;
-	    return this.refresh();
+	    return this.refresh(false, cmd_info);
 	};
 
 	Terminal.prototype.writeln = function(data) {
@@ -2343,20 +2448,21 @@
 		    var cmd_info = { 'cmd_line': cmd_line };
 		    var active_cmdline = get_active_cmdline(cmd_info);
 		    if (active_cmdline) {
-			cmd_info['cmd_line'] = active_cmdline;
+			cmd_info.cmd_line = active_cmdline;
 		    } else {
 			// When clicked "Ctrl + c, v" button
-			cmd_info['cmd_line'] = data
+			cmd_info.cmd_line = data;
 		    }
 		    if (cmd_info.cmd_line.includes("cd ") ||
 			cmd_info.cmd_line.includes("pushd ") ||
 			cmd_info.cmd_line.includes("popd "))
-			cmd_info['changed_pwd'] = true
+			cmd_info.changed_pwd = true;
 
-		    cmd_info['cmd_results'] = "";
-		    cmd_info_list.push(cmd_info);
-		    save_cmdline(cmd_info);
-		    cmd_index++;
+		    cmd_info.cmd_results = "";
+		    cmd_info.index = get_max_index_key() + 1;
+		    cmd_info_queue[cmd_info.index] = cmd_info;
+		    //console.log(`////////// send() ${cmd_info.cmd_line}(${cmd_info.index})`);
+		    begin_cmdinfo(cmd_info);
 		    cmd_line = "";
 		}
 	    }
