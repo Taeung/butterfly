@@ -187,6 +187,8 @@
 	};
 
 	write_request = function(e) {
+	    /* Last index key is current cmd_info */
+	    var cmd_info = cmd_info_queue[get_max_index_key()];
 	    //console.log("--- (Just) write_request ---");
 	    if (interactive) {
 		//console.log("!!!!!!!!!! remove interactive");
@@ -197,6 +199,8 @@
 		//console.log("!!!!!!!! start interactive");
 		show_popup('password');
 		interactive = true;
+		if (cmd_info)
+		    cmd_info.progress = false;
 		return setTimeout(write, 1, e.data);
 	    }
 
@@ -208,10 +212,6 @@
 		    cmd_line += e.data;
 		    up_arrow = false;
 		}
-
-
-		/* Last index key is current cmd_info */
-		var cmd_info = cmd_info_queue[get_max_index_key()];
 
 		if (!cmd_info)
 		    return setTimeout(write, 1, e.data);
@@ -392,7 +392,7 @@
 
 	//console.log(`////////// end_cmdinfo() ${cmd_info.cmd_line}(${cmd_info.cmd_seq})(${cmd_info.index})`);
 	if (cmd_info.cmd_seq == -1) {
-	    console.log("!!!!!!! Just delete_cmd_info");
+	    //console.log("!!!!!!! Just delete_cmd_info");
 	    delete_cmd_info(cmd_info);
 	    return;
 	}

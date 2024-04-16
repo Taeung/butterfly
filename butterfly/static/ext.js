@@ -875,7 +875,7 @@ async function show_popup(type) {
 	popup_html = `<div style="height:130px;width:140px; border-radius: 15px; font-size: large; opacity: 0.75; padding: 0.2em 0.5em; position: absolute; user-select: none; transition: opacity 180ms ease-in 0s; color: rgb(16, 16, 16); background-color: rgb(240, 240, 240); top: ${centerY}px; left: ${centerX}px;"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-key-fill" style="margin-left:5px" viewBox="0 2 16 16"><path d="M3.5 11.5a3.5 3.5 0 1 1 3.163-5H14L15.5 8 14 9.5l-1-1-1 1-1-1-1 1-1-1-1 1H6.663a3.5 3.5 0 0 1-3.163 2zM2.5 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg><p style="font-size: 11px;margin-top: -35px;text-align:center;">Enter your password <p style="font-size:9px;margin-top:-3px;margin-bottom:0px;text-align: center;">(Default: real1234)</p></p>`
 	timeout=null;
     } else if (type == 'progress') {
-	popup_html = `<div style="height:128px;width: 128px; border-radius: 15px; font-size: large; opacity: 0.75; padding: 0.2em 0.5em; position: absolute; user-select: none; transition: opacity 180ms ease-in 0s; color: rgb(16, 16, 16); background-color: rgb(240, 240, 240); top: ${centerY}px; left: ${centerX}px;">`;
+	popup_html = `<div style="height:128px;width: 128px; border-radius: 15px; font-size: large; opacity: 0.75; padding: 0.2em 0.5em; position: fixed;top:50%;left:50%; user-select: none; transition: opacity 180ms ease-in 0s; color: rgb(16, 16, 16); background-color: rgb(240, 240, 240);">`;
 
 	popup_html += `<div class="spinner-border loading_spinner" style="position: relative; top: 20%; left: 20%; z-index: 100; width: 60px; height: 60px;"></div>
 <p style="font-size: 12px;margin-top: 35px;text-align: center;">Please wait ...</p>`;
