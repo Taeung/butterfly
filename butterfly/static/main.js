@@ -127,6 +127,22 @@
 	    return false;
 
 	};
+	html_to_normal = function(html_str) {
+	    const entities = {
+		'&lt;': '<',
+		'&gt;': '>',
+		'&amp;': '&',
+		'&quot;': '"',
+		'&apos;': "'",
+		'&nbsp;': ' ',
+		'&copy;': '©',
+		'&reg;': '®'
+	    };
+	    return html_str.replace(/&lt;|&gt;|&amp;|&quot;|&apos;|&nbsp;|&copy;|&reg;/g,
+				    function(match) {
+					return entities[match];
+				    });
+	};
 	get_cmd_prompt = function(cmd_info) {
 	    const term = document.getElementById('term');
 	    const lines = term.querySelectorAll('div');
@@ -159,7 +175,8 @@
 		    break;
 	    }
 
-	    current_cmd_prompt = term_last_line.replace(/&nbsp;/g, ' ').trimEnd();
+	    term_last_line = html_to_normal(term_last_line);
+	    current_cmd_prompt = term_last_line.trimEnd();
 	    return current_cmd_prompt;
 	};
 	get_active_cmdline = function(cmd_info) {
