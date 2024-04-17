@@ -1,6 +1,6 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line, cmd_info_queue, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive, check_cmdline_status, save_cmdline,
+	sigint, sigint_next_line, cmd_line, cmd_info_queue, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive, check_cmdline_status, save_cmdline, user_id,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
@@ -11,6 +11,7 @@
     shell_prompts = [];
     up_arrow = false;
     interactive = false;
+    user_id=null;
     openTs = (new Date()).getTime();
     ws = {
 	shell: null,
@@ -112,16 +113,6 @@
 	    if (term) {
 		return term.write(data, cmd_info);
 	    }
-	};
-	is_cd_cmdline = function(line) {
-	    var current_prompt_html = cmd_prompt.replace(' ','&nbsp;')+'&nbsp;';
-	    var prompt = line.split(current_prompt_html)[1]
-	    if (prompt && (prompt.startsWith("cd&nbsp;") ||
-			   prompt.startsWith("pushd&nbsp;") ||
-			   prompt.startsWith("popd&nbsp;")))
-		return true;
-	    return false;
-
 	};
 	const entities = {
 	    '&lt;': '<',
@@ -230,10 +221,8 @@
 	    current_cmd_prompt = html_to_normal(term_last_line);
 	    return current_cmd_prompt;
 	};
-	get_active_cmdline = function(cmd_info) {
-	    var active_term_line = get_cmd_prompt(cmd_info);
-
-	    active_cmdline = active_term_line.split(cmd_prompt+' ')[1]
+	get_active_cmdline = function(cmd_prompt_line) {
+	    active_cmdline = cmd_prompt_line.split(cmd_prompt+' ')[1]
 	    return active_cmdline;
 	};
 
@@ -265,7 +254,7 @@
 		return setTimeout(write, 1, e.data);
 	    } else if (e.data.toLowerCase().includes('password for') || e.data.toLowerCase().includes('password:')) {
 		//console.log("!!!!!!!! start interactive");
-		show_popup('password');
+		show_popup('password', user_id);
 		interactive = true;
 		if (cmd_info)
 		    cmd_info.progress = false;
@@ -375,22 +364,22 @@
 	    if (cmd.seq != cmd_info.cmd_seq)
 		continue;
 
-	    var cmd_results = cmd_info.cmd_results.toLowerCase();
+	    var cmd_results = cmd_info.cmd_results;
 
 	    if (cmd_info.status == 'failed')
 		return;
 
 	    /* Expected result check */
 	    if (cmd.expected_results) {
-		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(
-		    expected_keyword.toLowerCase())))
+		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(expected_keyword)))
 		    cmd_info.status = 'completed';
 	    }
 
 	    /* Error check */
 	    if (cmd.error_results && cmd.error_results.includes('no-err-check')) {
 		/* No error check */;
-	    } else if (cmd.error_results.some(error_keyword => cmd_results.includes(error_keyword))) {
+	    } else if (cmd.error_results.some(error_keyword => cmd_results.toLowerCase().includes(
+		error_keyword.toLowerCase()))) {
 		cmd_info.status = 'failed';
 	    }
 
@@ -2482,6 +2471,25 @@
 	Terminal.prototype.isterm = function(term) {
 	    return ("" + this.termName).indexOf(term) === 0;
 	};
+	extract_user_id = function(prompt) {
+	    const match = prompt.match(/(\w+)@/);
+	    if (match) {
+		return match[1];
+	    } else {
+		return null;
+	    }
+	};
+	current_user_id = function(cmd_prompt_line, cmd_line) {
+	    var user_id = extract_user_id(cmd_prompt_line);
+
+	    if (cmd_line.includes('su ') && cmd_line.includes(' reallinux'))
+		return 'reallinux';
+	    return user_id;
+	};
+
+	is_changed_pwd = function(cmd_line) {
+	    return /^(cd |pushd |popd |su |docker exec |docker run |login |mysql |psql |mongo |redis-cli |exit |quit )/.test(cmd_line);
+	};
 
 	Terminal.prototype.send = function(data) {
 	    // Ctrl + c (SIGINT)
@@ -2514,18 +2522,19 @@
 
 		if (!interactive && data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
 		    var cmd_info = { 'cmd_line': cmd_line };
-		    var active_cmdline = get_active_cmdline(cmd_info);
+		    var cmd_prompt_line = get_cmd_prompt(cmd_info);
+		    var active_cmdline = get_active_cmdline(cmd_prompt_line);
 		    if (active_cmdline) {
 			cmd_info.cmd_line = active_cmdline;
 		    } else {
 			// When clicked "Ctrl + c, v" button
 			cmd_info.cmd_line = data;
 		    }
-		    if (cmd_info.cmd_line.includes("cd ") ||
-			cmd_info.cmd_line.includes("pushd ") ||
-			cmd_info.cmd_line.includes("popd "))
+
+		    if (is_changed_pwd(cmd_info.cmd_line))
 			cmd_info.changed_pwd = true;
 
+		    user_id = current_user_id(cmd_prompt_line, cmd_info.cmd_line);
 		    cmd_info.cmd_results = "";
 		    cmd_info.index = get_max_index_key() + 1;
 		    cmd_info_queue[cmd_info.index] = cmd_info;
