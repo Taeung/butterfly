@@ -877,8 +877,8 @@ async function show_popup(type) {
     } else if (type == 'progress') {
 	popup_html = `<div style="height:128px;width: 128px; border-radius: 15px; font-size: large; opacity: 0.75; padding: 0.2em 0.5em; position: fixed;top:50%;left:50%; user-select: none; transition: opacity 180ms ease-in 0s; color: rgb(16, 16, 16); background-color: rgb(240, 240, 240);">`;
 
-	popup_html += `<div class="spinner-border loading_spinner" style="position: relative; top: 20%; left: 20%; z-index: 100; width: 60px; height: 60px;"></div>
-<p style="font-size: 12px;margin-top: 35px;text-align: center;">Please wait ...</p>`;
+	popup_html += `<div class="spinner-border loading_spinner" style="position: relative; top: 15%; left: 20%; z-index: 100; width: 60px; height: 60px;"></div>
+<p style="font-size: 12px;margin-top: 33px;text-align: center;">Please wait ...</p>`;
 	timeout=null;
     }
     popup_html += '</div>';

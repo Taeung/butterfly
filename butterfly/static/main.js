@@ -113,10 +113,6 @@
 		return term.write(data, cmd_info);
 	    }
 	};
-	starts_with_cmd_prompt = function(line) {
-	    var current_prompt_html = cmd_prompt.replace(' ','&nbsp;')+'&nbsp;';
-	    return line.startsWith(current_prompt_html)
-	};
 	is_cd_cmdline = function(line) {
 	    var current_prompt_html = cmd_prompt.replace(' ','&nbsp;')+'&nbsp;';
 	    var prompt = line.split(current_prompt_html)[1]
@@ -127,56 +123,111 @@
 	    return false;
 
 	};
+	const entities = {
+	    '&lt;': '<',
+	    '&gt;': '>',
+	    '&amp;': '&',
+	    '&quot;': '"',
+	    '&apos;': "'",
+	    '&nbsp;': ' ',
+	    '&copy;': '©',
+	    '&reg;': '®'
+	};
+	const reversed_entities = {};
+	for (const key in entities) {
+	    reversed_entities[entities[key]] = key;
+	};
 	html_to_normal = function(html_str) {
-	    const entities = {
-		'&lt;': '<',
-		'&gt;': '>',
-		'&amp;': '&',
-		'&quot;': '"',
-		'&apos;': "'",
-		'&nbsp;': ' ',
-		'&copy;': '©',
-		'&reg;': '®'
-	    };
 	    return html_str.replace(/&lt;|&gt;|&amp;|&quot;|&apos;|&nbsp;|&copy;|&reg;/g,
 				    function(match) {
 					return entities[match];
 				    });
 	};
+	normal_to_html = function(normal_str) {
+	    const escapeRegExp = (str) => str.replace('/[-[\]/{}()*+?.\\^$|]/g', '\\$&');
+	    const keys = Object.keys(reversed_entities).map(escapeRegExp).join('|');
+
+	    return normal_str.replace(new RegExp(keys, 'g'), function(match) {
+		return reversed_entities[match];
+	    });
+	};
+	starts_with_cmd_prompt = function(line) {
+	    var cmd_prompt_html = normal_to_html(cmd_prompt) + '&nbsp;';
+	    return line.startsWith(cmd_prompt_html) ||
+		line.startsWith('<span>'+cmd_prompt_html);
+	};
 	get_cmd_prompt = function(cmd_info) {
 	    const term = document.getElementById('term');
 	    const lines = term.querySelectorAll('div');
-	    let active_index = -1;
+	    var start_index = -1;
+	    var end_index = lines.length;
 	    var term_last_line = "";
 	    var current_cmd_prompt = null;
+	    var is_mutiple_cmdline = false;
+	    var is_over_cmdline = false;
 
 	    for (let i = lines.length-1; i >= 0; i--) {
-		var line = lines[i];
-		if (line.className.includes('active')) {
-		    active_index = i;
+		var line_div = lines[i];
+		var line_class = line_div.className;
+		var line = line_div.innerHTML;
+
+		if (starts_with_cmd_prompt(line) && (is_over_cmdline || is_mutiple_cmdline)) {
+		    start_index = i;
 		    break;
+		}
+
+		if (!is_mutiple_cmdline && line_class.includes('active')) {
+		    /* Active line is basically last line */
+		    end_index = i;
+
+		    if (cmd_info.changed_pwd) {
+			var line_span_class = line_div.querySelector('span').className;
+
+			if (line.startsWith('<span class=') && line_span_class.includes('cursor')) {
+			    /* Not yet, changed new prompt is found */
+			    return null;
+			} else {
+			    start_index = i;
+			    break;
+			}
+		    }
+		    /* Actual one line command but splitted as mutiple lines with > */
+		    else if (line.startsWith('&gt;&nbsp;') || line.startsWith('<span>&gt;&nbsp;')) {
+			is_mutiple_cmdline = true;
+		    }
+		    else if (starts_with_cmd_prompt(line)) {
+			start_index = i;
+			break;
+		    }
+		    else
+			is_over_cmdline = true;
 		}
 	    }
 
-	    if (active_index == -1)
+	    if (start_index == -1)
 		return null;
 
-	    for (let i = active_index; i >= 0; i--) {
-		var line = lines[i].innerHTML;
+	    if (is_mutiple_cmdline || is_over_cmdline) {
+		for (let i = start_index; i <= end_index ; i++) {
+		    var line = lines[i].innerHTML;
 
-		if (cmd_info.changed_pwd && is_cd_cmdline(line))
-		    break;
+		    line = line.replace(/<[^>]*>/g, "").trimEnd();
+		    line = line.replace(/(&nbsp;)+$/, '');
+		    if (line.startsWith('&gt;&nbsp;'))
+			line = line.replace('&gt;&nbsp;','\n');
+		    term_last_line += line;
+		}
+	    }
+	    else {
+		var line = lines[start_index].innerHTML;
 
 		line = line.replace(/<[^>]*>/g, "").trimEnd();
 		line = line.replace(/(&nbsp;)+$/, '');
-		term_last_line += line;
-
-		if (!cmd_info.changed_pwd && starts_with_cmd_prompt(line))
-		    break;
+		term_last_line = line;
 	    }
 
-	    term_last_line = html_to_normal(term_last_line);
-	    current_cmd_prompt = term_last_line.trimEnd();
+	    term_last_line = term_last_line.trimEnd();
+	    current_cmd_prompt = html_to_normal(term_last_line);
 	    return current_cmd_prompt;
 	};
 	get_active_cmdline = function(cmd_info) {
@@ -346,7 +397,7 @@
 	    return;
 	}
 	/* Bug case */
-	console.log("Cannot find ${cmd_info.cmd_seq}: ${cmd_info.cmd_line}");
+	console.log(`Cannot find (seq: ${cmd_info.cmd_seq}): ${cmd_info.cmd_line}`);
 	return;
     };
 
