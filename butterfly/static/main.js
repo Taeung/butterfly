@@ -1,6 +1,6 @@
 (function() {
     var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
-	sigint, sigint_next_line, cmd_line, cmd_info_queue, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive, check_cmdline_status, save_cmdline, user_id,
+	sigint, sigint_next_line, cmd_line, cmd_info_queue, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive, check_cmdline_status, save_cmdline, user_id, reverse_search_mode,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
     quit = false;
@@ -11,6 +11,7 @@
     shell_prompts = [];
     up_arrow = false;
     interactive = false;
+    reverse_search_mode = false;
     user_id=null;
     openTs = (new Date()).getTime();
     ws = {
@@ -244,20 +245,34 @@
 	};
 
 	write_request = function(e) {
+	    //console.log("--- (Just) write_request ---");
 	    /* Last index key is current cmd_info */
 	    var cmd_info = cmd_info_queue[get_max_index_key()];
-	    //console.log("--- (Just) write_request ---");
-	    if (interactive) {
+	    var check_reverse_search = e.data.trim();
+
+	    if (!reverse_search_mode && interactive) {
 		//console.log("!!!!!!!!!! remove interactive");
 		remove_popup(300);
 		interactive = false;
 		return setTimeout(write, 1, e.data);
-	    } else if (e.data.toLowerCase().includes('password for') || e.data.toLowerCase().includes('password:')) {
+	    } else if (e.data.toLowerCase().includes('password for') ||
+		       e.data.toLowerCase().includes('password:')) {
 		//console.log("!!!!!!!! start interactive");
 		show_popup('password', user_id);
 		interactive = true;
 		if (cmd_info)
 		    cmd_info.progress = false;
+		return setTimeout(write, 1, e.data);
+	    } else if (check_reverse_search.includes('(reverse-i-search)') ||
+		       check_reverse_search.includes('failed reverse-i-search)')) {
+		interactive = true;
+		if (cmd_info)
+		    cmd_info.progress = false;
+		show_popup('reverse_search');
+		return setTimeout(write, 1, e.data);
+	    } else if (reverse_search_mode) {
+		reverse_search_mode = false;
+		interactive = false;
 		return setTimeout(write, 1, e.data);
 	    }
 
@@ -2492,11 +2507,9 @@
 	};
 
 	Terminal.prototype.send = function(data) {
-	    var ctrl_r = false;
-
 	    // Ctrl + r ^R (ASCII 18 / DC2 / Device Control 2)
 	    if (data == String.fromCharCode(82-64))
-		ctrl_r = true;
+		reverse_search_mode = true;
 
 	    // Ctrl + c (SIGINT) ^C (ASCII 3 / ETX / End of Text)
 	    if (data == String.fromCharCode(67-64))
@@ -2529,7 +2542,7 @@
 		if (cmd_line == "\r")
 		    cmd_line = cmd_line.slice(0, -1);
 
-		if ((data.charCodeAt(data.length-1) == 13 && cmd_line != "") || ctrl_r) {
+		if ((data.charCodeAt(data.length-1) == 13 && cmd_line != "") || reverse_search_mode) {
 		    var cmd_info = { 'cmd_line': cmd_line };
 		    var cmd_prompt_line = get_cmd_prompt(cmd_info);
 		    var active_cmdline = get_active_cmdline(cmd_prompt_line);
@@ -2540,7 +2553,9 @@
 			cmd_info.cmd_line = data.replace(/\r/g,'\n');
 		    }
 
-		    if (ctrl_r)
+		    if (cmd_info.cmd_line == 'Ctrl + r' && !reverse_search_mode)
+			return this.out(data);
+		    else if (reverse_search_mode)
 			cmd_info.cmd_line = 'Ctrl + r';
 
 		    if (is_changed_pwd(cmd_info.cmd_line))

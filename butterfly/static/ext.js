@@ -884,13 +884,19 @@ async function show_popup(type, user=null) {
 	if (user == 'reallinux')
 	    popup_html += `<p style="font-size:9px;margin-top:-3px;margin-bottom:0px;text-align: center;">(Default: real1234)</p>`
 	popup_html += `</p>`
-	timeout=null;
+	timeout = null;
     } else if (type == 'progress') {
 	popup_html = `<div style="height:128px;width: 128px; border-radius: 15px; font-size: large; opacity: 0.75; padding: 0.2em 0.5em; position: fixed;top:45%;left:45%; user-select: none; transition: opacity 180ms ease-in 0s; color: rgb(16, 16, 16); background-color: rgb(240, 240, 240);">`;
 
-	popup_html += `<div class="spinner-border loading_spinner" style="position: relative; top: 15%; left: 20%; z-index: 100; width: 60px; height: 60px;"></div>
-<p style="font-size: 12px;margin-top: 33px;text-align: center;">Please wait ...</p>`;
-	timeout=null;
+	popup_html += `<div class="spinner-border loading_spinner" style="position: relative; top: 15%; left: 20%; z-index: 100; width: 60px; height: 60px;"></div>`;
+	popup_html += `<p style="font-size: 12px;margin-top: 33px;text-align: center;">Please wait ...</p>`;
+	timeout = null;
+    } else if (type == 'reverse_search') {
+	popup_html = `<div style="height:128px;width: 215px; border-radius: 15px; font-size: large; opacity: 0.75; padding: 0.2em 0.5em; position: fixed;top:45%;left:45%; user-select: none; transition: opacity 180ms ease-in 0s; color: rgb(16, 16, 16); background-color: rgb(240, 240, 240);">`;
+
+	popup_html += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 700" style="height:80%;margin-top:10px;margin-left:60px;"><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"/></svg>`;
+	popup_html += `<p style="font-size: 12px;margin-top: -10px;text-align: center;">Search on command history</p>`;
+	timeout = 2000;
     }
     popup_html += '</div>';
     popup_div.innerHTML = popup_html;
