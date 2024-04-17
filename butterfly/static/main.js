@@ -154,7 +154,7 @@
 	    var end_index = lines.length;
 	    var term_last_line = "";
 	    var current_cmd_prompt = null;
-	    var is_mutiple_cmdline = false;
+	    var is_multiple_cmdline = false;
 	    var is_over_cmdline = false;
 
 	    for (let i = lines.length-1; i >= 0; i--) {
@@ -162,12 +162,12 @@
 		var line_class = line_div.className;
 		var line = line_div.innerHTML;
 
-		if (starts_with_cmd_prompt(line) && (is_over_cmdline || is_mutiple_cmdline)) {
+		if (starts_with_cmd_prompt(line) && (is_over_cmdline || is_multiple_cmdline)) {
 		    start_index = i;
 		    break;
 		}
 
-		if (!is_mutiple_cmdline && line_class.includes('active')) {
+		if (!is_multiple_cmdline && line_class.includes('active')) {
 		    /* Active line is basically last line */
 		    end_index = i;
 
@@ -184,7 +184,7 @@
 		    }
 		    /* Actual one line command but splitted as mutiple lines with > */
 		    else if (line.startsWith('&gt;&nbsp;') || line.startsWith('<span>&gt;&nbsp;')) {
-			is_mutiple_cmdline = true;
+			is_multiple_cmdline = true;
 		    }
 		    else if (starts_with_cmd_prompt(line)) {
 			start_index = i;
@@ -198,7 +198,7 @@
 	    if (start_index == -1)
 		return null;
 
-	    if (is_mutiple_cmdline || is_over_cmdline) {
+	    if (is_multiple_cmdline || is_over_cmdline) {
 		for (let i = start_index; i <= end_index ; i++) {
 		    var line = lines[i].innerHTML;
 
@@ -2492,11 +2492,20 @@
 	};
 
 	Terminal.prototype.send = function(data) {
-	    // Ctrl + c (SIGINT)
+	    var ctrl_r = false;
+
+	    // Ctrl + r ^R (ASCII 18 / DC2 / Device Control 2)
+	    if (data == String.fromCharCode(82-64))
+		ctrl_r = true;
+
+	    // Ctrl + c (SIGINT) ^C (ASCII 3 / ETX / End of Text)
 	    if (data == String.fromCharCode(67-64))
 		sigint = true;
 	    else
 		sigint = false;
+
+	    if (interactive)
+		return this.out(data);
 
 	    if (location.href.includes("/level-up/")) {
 		if (cmd_init === undefined) {
@@ -2520,7 +2529,7 @@
 		if (cmd_line == "\r")
 		    cmd_line = cmd_line.slice(0, -1);
 
-		if (!interactive && data.charCodeAt(data.length-1) == 13 && cmd_line != "") {
+		if ((data.charCodeAt(data.length-1) == 13 && cmd_line != "") || ctrl_r) {
 		    var cmd_info = { 'cmd_line': cmd_line };
 		    var cmd_prompt_line = get_cmd_prompt(cmd_info);
 		    var active_cmdline = get_active_cmdline(cmd_prompt_line);
@@ -2528,8 +2537,11 @@
 			cmd_info.cmd_line = active_cmdline;
 		    } else {
 			// When clicked "Ctrl + c, v" button
-			cmd_info.cmd_line = data;
+			cmd_info.cmd_line = data.replace(/\r/g,'\n');
 		    }
+
+		    if (ctrl_r)
+			cmd_info.cmd_line = 'Ctrl + r';
 
 		    if (is_changed_pwd(cmd_info.cmd_line))
 			cmd_info.changed_pwd = true;

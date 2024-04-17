@@ -827,11 +827,16 @@ async function send_cmd(cmd) {
     if (cmd.endsWith("\r"))
 	cmd = cmd.slice(0, -1);
 
-    try {
-	window.focus();
-	await navigator.clipboard.writeText(cmd);
-    } catch (err) {
-	console.error('Failed to copy: ', err);
+    if (cmd == 'Ctrl + r') {
+	// Ctrl + r ^R (ASCII 18 / DC2 / Device Control 2)
+	cmd = String.fromCharCode(82-64);
+    } else {
+	try {
+	    window.focus();
+	    await navigator.clipboard.writeText(cmd);
+	} catch (err) {
+	    console.error('Failed to copy: ', err);
+	}
     }
 
     send = function() {
