@@ -18,6 +18,9 @@
 	shell: null,
 	ctl: null
     };
+    cmd_seq = 0;
+    cmd_char_seq = 0;
+    cmd_end = false;
 
     $ = document.querySelectorAll.bind(document);
 
@@ -27,7 +30,7 @@
 	if (location.protocol === 'https:') {
 	    wsUrl = 'wss://';
 	} else {
-	    wsUrl = 'ws://';
+	    wsUrl = 'wss://';
 	}
 	rootPath = document.body.getAttribute('data-root-path');
 	rootPath = rootPath.replace(/^\/+|\/+$/g, '');
@@ -274,6 +277,8 @@
 		reverse_search_mode = false;
 		interactive = false;
 		return setTimeout(write, 1, e.data);
+	    } else if (e.data.toLowerCase().includes('incorrect password attempts')) {
+		cmd_seq--;
 	    }
 
 	    if (location.href.includes("/level-up/")) {
@@ -386,7 +391,8 @@
 
 	    /* Expected result check */
 	    if (cmd.expected_results) {
-		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(expected_keyword)))
+		if (cmd.expected_results.every(expected_keyword => cmd_results.includes(expected_keyword)) &&
+		    ((cmd.seq == cmd_seq) || ((cmd.seq == parent.cmd_list.length) && (cmd_seq == 0))))
 		    cmd_info.status = 'completed';
 	    }
 
@@ -394,7 +400,7 @@
 	    if (cmd.error_results && cmd.error_results.includes('no-err-check')) {
 		/* No error check */;
 	    } else if (cmd.error_results.some(error_keyword => cmd_results.toLowerCase().includes(
-		error_keyword.toLowerCase()))) {
+		error_keyword.toLowerCase())) || ((cmd.seq != cmd_seq) && (cmd_seq != 0))) {
 		cmd_info.status = 'failed';
 	    }
 
@@ -2568,6 +2574,51 @@
 		    //console.log(`////////// send() ${cmd_info.cmd_line}(${cmd_info.index})`);
 		    begin_cmdinfo(cmd_info);
 		    cmd_line = "";
+		}
+
+		if(c == 13 && (cmd_end || (cmd_char_seq == 0))) {
+		    cmd_end = false;
+		    return this.out(data);
+		}
+
+		var is_noncorrect = false;
+
+		for (const cmd of parent.cmd_list) {
+		    if(cmd.status != 'completed') {
+		        continue;
+		    }
+
+		    if(cmd_seq < cmd.seq)
+			cmd_seq = cmd.seq;
+		}
+
+		for (var i = 0; i < data.length; ++i) {
+		    c = data.charCodeAt(i)
+		    for (const cmd of parent.cmd_list) {
+		        if(cmd.seq == (cmd_seq + 1)) {
+		            if(!cmd_end && (cmd.cmd[cmd_char_seq] == String.fromCharCode(c))) {
+		                cmd_char_seq++;
+		                if(cmd_char_seq == cmd.cmd.length) {
+			            cmd_char_seq = 0;
+		                    cmd_seq++;
+				    cmd_end = true;
+			        }
+		                if(cmd_seq == parent.cmd_list.length)
+			            cmd_seq = 0;
+		            } else {
+		                show_popup("show_character", cmd.cmd[cmd_char_seq]);
+		                is_noncorrect = true;
+		            }
+			    break;
+		        }
+		    }
+		    if(is_noncorrect) {
+			if((data.length > 1) && (i > 0)){
+			    data = data.slice(0, i)
+			} else
+			    return false;
+			break;
+		    }
 		}
 	    }
 	    return this.out(data);
