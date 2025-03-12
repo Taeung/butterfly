@@ -30,7 +30,7 @@
 	if (location.protocol === 'https:') {
 	    wsUrl = 'wss://';
 	} else {
-	    wsUrl = 'wss://';
+	    wsUrl = 'ws://';
 	}
 	rootPath = document.body.getAttribute('data-root-path');
 	rootPath = rootPath.replace(/^\/+|\/+$/g, '');
