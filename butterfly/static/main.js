@@ -2596,9 +2596,10 @@
 		    c = data.charCodeAt(i)
 		    for (const cmd of parent.cmd_list) {
 		        if(cmd.seq == (cmd_seq + 1)) {
-		            if(!cmd_end && (cmd.cmd[cmd_char_seq] == String.fromCharCode(c))) {
+			    cmd_line = html_to_normal(cmd.cmd)
+		            if(!cmd_end && (cmd_line[cmd_char_seq] == String.fromCharCode(c))) {
 		                cmd_char_seq++;
-		                if(cmd_char_seq == cmd.cmd.length) {
+		                if(cmd_char_seq == cmd_line.length) {
 			            cmd_char_seq = 0;
 		                    cmd_seq++;
 				    cmd_end = true;
