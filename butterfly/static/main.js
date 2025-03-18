@@ -115,6 +115,9 @@
 		return term.write(data, cmd_info);
 	    }
 	};
+	function remove_ansi_codes(str) {
+	    return str.replace(/\x1b\[[0-9;]*m/g, '');
+	}
 	const entities = {
 	    '&lt;': '<',
 	    '&gt;': '>',
@@ -146,7 +149,8 @@
 	starts_with_cmd_prompt = function(line) {
 	    var cmd_prompt_html = normal_to_html(cmd_prompt) + '&nbsp;';
 	    return line.startsWith(cmd_prompt_html) ||
-		line.startsWith('<span>'+cmd_prompt_html);
+		line.startsWith('<span>'+cmd_prompt_html) ||
+		line.startsWith("<span class=\"bold fg-color-10 bg-color-256\">reallinux@ubuntu-22-04</span>:<span class=\"bold fg-color-12 bg-color-256\">~</span>$&nbsp;");
 	};
 	get_cmd_prompt = function(cmd_info) {
 	    const term = document.getElementById('term');
@@ -320,6 +324,8 @@
 			    cmd_info.cmd_results = "";
 			}
 		    }
+
+		    last_line = remove_ansi_codes(last_line)
 		    /* Finish to check cmdline status */
 		    if (last_line.trimEnd().endsWith(cmd_prompt)) {
 			cmd_info.finish = true;
