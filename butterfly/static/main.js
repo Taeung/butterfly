@@ -126,14 +126,15 @@
 	    '&apos;': "'",
 	    '&nbsp;': ' ',
 	    '&copy;': '©',
-	    '&reg;': '®'
+	    '&reg;': '®',
+	    '&#x27;': "'",
 	};
 	const reversed_entities = {};
 	for (const key in entities) {
 	    reversed_entities[entities[key]] = key;
 	};
 	html_to_normal = function(html_str) {
-	    return html_str.replace(/&lt;|&gt;|&amp;|&quot;|&apos;|&nbsp;|&copy;|&reg;/g,
+	    return html_str.replace(/&lt;|&gt;|&amp;|&quot;|&apos;|&nbsp;|&copy;|&reg;|&#x27;/g,
 				    function(match) {
 					return entities[match];
 				    });
