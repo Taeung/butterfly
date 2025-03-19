@@ -13,6 +13,7 @@
     interactive = false;
     reverse_search_mode = false;
     user_id=null;
+    editor_mode = false;
     openTs = (new Date()).getTime();
     ws = {
 	shell: null,
@@ -254,6 +255,14 @@
 	    var cmd_info = cmd_info_queue[get_max_index_key()];
 	    var check_reverse_search = e.data.trim();
 
+	    if (editor_mode) {
+	        const re_shell_prompt = /[a-zA-Z0-9_]+@[^:]+:.*\$ $/m;
+		if (re_shell_prompt.test(e.data)) {
+		    show_popup('progress')
+		    editor_mode = false;
+		}
+	    }
+
 	    if (!reverse_search_mode && interactive) {
 		//console.log("!!!!!!!!!! remove interactive");
 		remove_popup(300);
@@ -277,6 +286,13 @@
 	    } else if (reverse_search_mode) {
 		reverse_search_mode = false;
 		interactive = false;
+		return setTimeout(write, 1, e.data);
+	    } else if (e.data.toLowerCase().includes('y/n')||
+		       e.data.toLowerCase().includes('yes/no')) {
+		interactive = true;
+		if (cmd_info)
+		    cmd_info.progress = false;
+		show_popup('progress');
 		return setTimeout(write, 1, e.data);
 	    }
 
@@ -2526,6 +2542,9 @@
 	    if (interactive)
 		return this.out(data);
 
+	    if (editor_mode)
+		return this.out(data);
+
 	    if (location.href.includes("/level-up/")) {
 		if (cmd_init === undefined) {
 		    shell_prompts.shift();
@@ -2549,6 +2568,11 @@
 		    cmd_line = cmd_line.slice(0, -1);
 
 		if ((data.charCodeAt(data.length-1) == 13 && cmd_line != "") || reverse_search_mode) {
+		    const cmd_lower = cmd_line.trim().toLowerCase();
+		    if (/^(\s*(sudo|doas)\s+)?(nano|vim|vi)(\s+|$)/.test(cmd_lower)) {
+		        remove_popup(300);
+			editor_mode = true;
+		    }
 		    var cmd_info = { 'cmd_line': cmd_line };
 		    var cmd_prompt_line = get_cmd_prompt(cmd_info);
 		    var active_cmdline = get_active_cmdline(cmd_prompt_line);
