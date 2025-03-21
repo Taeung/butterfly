@@ -147,11 +147,15 @@
 		return reversed_entities[match];
 	    });
 	};
+	remove_all_color_span = function(line) {
+	    const regex = /<span[^>]*\bclass="[^"]*fg-color-\d+[^"]*bg-color-\d+[^"]*"[^>]*>(.*?)<\/span>/gi;
+	    return line.replace(regex, "$1");
+	};
 	starts_with_cmd_prompt = function(line) {
 	    var cmd_prompt_html = normal_to_html(cmd_prompt) + '&nbsp;';
-	    return line.startsWith(cmd_prompt_html) ||
-		line.startsWith('<span>'+cmd_prompt_html) ||
-		line.startsWith("<span class=\"bold fg-color-10 bg-color-256\">reallinux@ubuntu-22-04</span>:<span class=\"bold fg-color-12 bg-color-256\">~</span>$&nbsp;");
+	    color_rm_line = remove_all_color_span(line)
+	    return color_rm_line.startsWith(cmd_prompt_html) ||
+		   color_rm_line.startsWith('<span>'+cmd_prompt_html);
 	};
 	get_cmd_prompt = function(cmd_info) {
 	    const term = document.getElementById('term');
