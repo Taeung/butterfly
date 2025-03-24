@@ -77,19 +77,25 @@
 	    var email = parts[parts.length - 1];
 	    var url = `${location.href}close?user=${email}`;
 
-	    fetch(url)
-		.then(response => {
-		    if (!response.ok) {
-			throw new Error('Network response was not ok');
-		    }
-		    return response.json();
-		})
-		.then(data => {
-		    //console.log(data);
-		})
-		.catch(error => {
-		    console.error('Fetch error:', error);
-		});
+	    fetch(url, {
+	        method: 'POST',
+		headers: {
+		    'Content-Type': 'application/json',
+		    'X-CSRFToken': parent.csrftoken,
+		},
+	    })
+	    .then(response => {
+		if (!response.ok) {
+		    throw new Error('Network response was not ok');
+		}
+		return response.json();
+	    })
+	    .then(data => {
+		//console.log(data);
+	    })
+	    .catch(error => {
+		console.error('Fetch error:', error);
+	    });
 
 	    if (quit) {
 		return;
@@ -443,6 +449,7 @@
 	    method: 'POST',
 	    headers: {
 		'Content-Type': 'application/json',
+		'X-CSRFToken': parent.csrftoken,
 	    },
 	    body: JSON.stringify(cmd_info),
 	})
