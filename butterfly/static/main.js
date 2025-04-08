@@ -14,6 +14,7 @@
     reverse_search_mode = false;
     user_id=null;
     editor_mode = false;
+    next_command_mode = false;
     openTs = (new Date()).getTime();
     ws = {
 	shell: null,
@@ -264,15 +265,24 @@
 	    /* Last index key is current cmd_info */
 	    var cmd_info = cmd_info_queue[get_max_index_key()];
 	    var check_reverse_search = e.data.trim();
-
-	    if (editor_mode) {
+	    if (editor_mode || next_command_mode) {
 	        const re_shell_prompt = /[a-zA-Z0-9_]+@[^:]+:.*\$ $/m;
-		if (re_shell_prompt.test(e.data)) {
-		    show_popup('progress')
+
+		if ((e.data.toLowerCase().includes('password for') ||
+		    e.data.toLowerCase().includes('password:')) &&
+		    next_command_mode){
+		    show_popup('password', user_id);
+		    interactive = true;
+		    if (cmd_info) {
+		        cmd_info.progress = false;
+		    }
+		    return setTimeout(write, 1, e.data);
+		} else if (re_shell_prompt.test(e.data)) {
+		    remove_popup(300);
 		    editor_mode = false;
+		    next_command_mode = false;
 		}
 	    }
-
 	    if (!reverse_search_mode && interactive) {
 		//console.log("!!!!!!!!!! remove interactive");
 		remove_popup(300);
@@ -285,6 +295,9 @@
 		interactive = true;
 		if (cmd_info)
 		    cmd_info.progress = false;
+		return setTimeout(write, 1, e.data);
+	    } else if (e.data.includes('[?2004h>') || e.data.includes('[?2004h&gt;&nbsp;')) {
+		next_command_mode = true;
 		return setTimeout(write, 1, e.data);
 	    } else if (check_reverse_search.includes('(reverse-i-search)') ||
 		       check_reverse_search.includes('failed reverse-i-search)')) {
@@ -344,7 +357,7 @@
 			    cmd_info.cmd_results += e.data;
 
 			/* Not yet, begin_return is arrived */
-			if (cmd_info.cmd_seq && cmd_info.cmd_seq != -1) {
+			if ((cmd_info.cmd_seq || cmd_info.cmd_seq == 0) && cmd_info.cmd_seq != -1) {
 			    check_result_status(cmd_info);
 			    delete cmd_info.cmd_results;
 			    cmd_info.cmd_results = "";
@@ -1207,7 +1220,7 @@
 		    }
 		}
 		/* The end condition: initialized cmd_seq and finish status */
-		if (cmd_info.cmd_seq) {
+		if ((cmd_info.cmd_seq) || (cmd_info.cmd_seq == 0)) {
 		    if (!cmd_info.finish)
 			//console.log("!!!!!!!!!!! Not Yet (finish)!!!!!!!!!!! ");
 			/* Not yet, multiple write_request are finished */;
@@ -2572,43 +2585,59 @@
 		else if (c == 127) {
 		    // 127 (Backspace)
 		    cmd_line = cmd_line.slice(0, -1);
-		} else if (c > 31) {
+		} else if ((data.length == 1) && (c > 31)) {
 		    cmd_line += data;
+		} else {
+		    for (let i = 0; i < data.length; i++) {
+		        const ch = data.charCodeAt(i);
+			if (ch > 31)
+			    cmd_line += data[i];
+		    }
 		}
 		if (cmd_line == "\r")
 		    cmd_line = cmd_line.slice(0, -1);
 
 		if ((data.charCodeAt(data.length-1) == 13 && cmd_line != "") || reverse_search_mode) {
-		    const cmd_lower = cmd_line.trim().toLowerCase();
-		    if (/^(\s*(sudo|doas)\s+)?(nano|vim|vi)(\s+|$)/.test(cmd_lower)) {
-		        remove_popup(300);
-			editor_mode = true;
-		    }
-		    var cmd_info = { 'cmd_line': cmd_line };
-		    var cmd_prompt_line = get_cmd_prompt(cmd_info);
-		    var active_cmdline = get_active_cmdline(cmd_prompt_line);
-		    if (active_cmdline) {
-			cmd_info.cmd_line = active_cmdline;
-		    } else {
-			// When clicked "Ctrl + c, v" button
-			cmd_info.cmd_line = data.replace(/\r/g,'\n');
-		    }
+		    cmd_line = cmd_line.replace(/\r$/, '');
+		    const trimmed = cmd_line.trim();
 
-		    if (cmd_info.cmd_line == 'Ctrl + r' && !reverse_search_mode)
+		    if (trimmed.endsWith('\\')) {
+			cmd_line = trimmed.slice(0, -1) + ' ';
 			return this.out(data);
-		    else if (reverse_search_mode)
-			cmd_info.cmd_line = 'Ctrl + r';
+		    } else {
+			const full_cmd = cmd_line.trim();
+			cmd_line = "";
+		        const cmd_lower = full_cmd.toLowerCase();
+		        if (/^(\s*(sudo|doas)\s+)?(nano|vim|vi)(\s+|$)/.test(cmd_lower)) {
+		            remove_popup(300);
+			    editor_mode = true;
+		        }
+		        var cmd_info = { 'cmd_line': full_cmd };
+		        var cmd_prompt_line = get_cmd_prompt(cmd_info);
+		        var active_cmdline = get_active_cmdline(cmd_prompt_line);
+		        if (active_cmdline) {
+			    cmd_info.cmd_line = active_cmdline;
+		        } else {
+			    // When clicked "Ctrl + c, v" button
+			    cmd_info.cmd_line = data.replace(/\r/g,'\n');
+		        }
 
-		    if (is_changed_pwd(cmd_info.cmd_line))
-			cmd_info.changed_pwd = true;
+		        if (cmd_info.cmd_line == 'Ctrl + r' && !reverse_search_mode)
+			    return this.out(data);
+		        else if (reverse_search_mode)
+			    cmd_info.cmd_line = 'Ctrl + r';
 
-		    user_id = current_user_id(cmd_prompt_line, cmd_info.cmd_line);
-		    cmd_info.cmd_results = "";
-		    cmd_info.index = get_max_index_key() + 1;
-		    cmd_info_queue[cmd_info.index] = cmd_info;
-		    //console.log(`////////// send() ${cmd_info.cmd_line}(${cmd_info.index})`);
-		    begin_cmdinfo(cmd_info);
-		    cmd_line = "";
+		        if (is_changed_pwd(cmd_info.cmd_line))
+			    cmd_info.changed_pwd = true;
+
+		        user_id = current_user_id(cmd_prompt_line, cmd_info.cmd_line);
+		        cmd_info.cmd_results = "";
+		        cmd_info.index = get_max_index_key() + 1;
+		        cmd_info_queue[cmd_info.index] = cmd_info;
+		        //console.log(`////////// send() ${cmd_info.cmd_line}(${cmd_info.index})`);
+		        begin_cmdinfo(cmd_info);
+		        cmd_line = "";
+		    }
 		}
 	    }
 	    return this.out(data);
