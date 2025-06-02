@@ -155,7 +155,7 @@
 	    });
 	};
 	remove_all_color_span = function(line) {
-	    const regex = /<span[^>]*\bclass="[^"]*fg-color-\d+[^"]*bg-color-\d+[^"]*"[^>]*>(.*?)<\/span>/gi;
+	    const regex = /<span(?:\s[^>]*)?>(.*?)<\/span>/gi;
 	    return line.replace(regex, "$1");
 	};
 	starts_with_cmd_prompt = function(line) {
@@ -209,6 +209,16 @@
 		    }
 		    else
 			is_over_cmdline = true;
+		}
+	    }
+
+	    if (start_index === -1 && end_index < lines.length) {
+		for (let i = end_index - 1; i >= 0; i--) {
+		    const line = lines[i].innerHTML;
+		    if (starts_with_cmd_prompt(line)) {
+			start_index = i;
+			break;
+		    }
 		}
 	    }
 
@@ -2635,7 +2645,7 @@
 		        cmd_info.index = get_max_index_key() + 1;
 		        cmd_info_queue[cmd_info.index] = cmd_info;
 		        //console.log(`////////// send() ${cmd_info.cmd_line}(${cmd_info.index})`);
-		        begin_cmdinfo(cmd_info);
+			begin_cmdinfo(cmd_info);
 		        cmd_line = "";
 		    }
 		}
