@@ -1221,9 +1221,13 @@
 		//console.log(`////////// refresh() ${cmd_info.cmd_line}(${cmd_info.cmd_seq})(${cmd_info.index})`);
 		if (cmd_info.changed_pwd == true) {
 		    var new_cmd_prompt = get_cmd_prompt(cmd_info);
+		    const soft_cmd_regex = /.*@.*$/;
 
-		    if (new_cmd_prompt) {
-			cmd_prompt = new_cmd_prompt;
+		    if (soft_cmd_regex.test(new_cmd_prompt)) {
+			const hard_cmd_regex = /^(.*@.*\$)/;
+			console.log(new_cmd_prompt)
+			const match = new_cmd_prompt.match(hard_cmd_regex);
+			cmd_prompt = match[1];
 			cmd_info.finish = true;
 			cmd_info.changed_pwd = false;
 			//console.log(`!!!!!!!! new_cmd_prompt: ${cmd_prompt}`);
@@ -2559,7 +2563,7 @@
 	};
 
 	is_changed_pwd = function(cmd_line) {
-	    return /^(cd |pushd |popd |su |docker exec |docker run |login |mysql |psql |mongo |redis-cli |exit |quit )/.test(cmd_line);
+	    return /^(cd |pushd |popd |su |docker exec |docker run |ssh |login |mysql |psql |mongo |redis-cli |exit|quit)/.test(cmd_line);
 	};
 
 	Terminal.prototype.send = function(data) {
@@ -2637,7 +2641,7 @@
 		        else if (reverse_search_mode)
 			    cmd_info.cmd_line = 'Ctrl + r';
 
-		        if (is_changed_pwd(cmd_info.cmd_line))
+			if (is_changed_pwd(cmd_info.cmd_line))
 			    cmd_info.changed_pwd = true;
 
 		        user_id = current_user_id(cmd_prompt_line, cmd_info.cmd_line);
