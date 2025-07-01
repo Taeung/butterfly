@@ -280,8 +280,6 @@
 	    var cmd_info = cmd_info_queue[get_max_index_key()];
 	    var check_reverse_search = e.data.trim();
 	    if (editor_mode || next_command_mode) {
-		const re_shell_prompt = /[a-zA-Z0-9_]+@[^:]+:.*\$ $/m;
-
 		if ((e.data.toLowerCase().includes('password for') ||
 		    e.data.toLowerCase().includes('password:')) &&
 		    next_command_mode){
@@ -291,7 +289,7 @@
 		        cmd_info.progress = false;
 		    }
 		    return setTimeout(write, 1, e.data);
-		} else if (re_shell_prompt.test(e.data)) {
+		} else if (e.data.includes(cmd_prompt)) {
 		    remove_popup(300);
 		    editor_mode = false;
 		    next_command_mode = false;
