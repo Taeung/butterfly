@@ -11,6 +11,10 @@
     shell_prompts = [];
     up_arrow = false;
     interactive = false;
+    yn_check = false;
+    yn_check_value = "";
+    yesno_check = false;
+    yesno_check_list = [];
     reverse_search_mode = false;
     user_id=null;
     editor_mode = false;
@@ -276,7 +280,7 @@
 	    var cmd_info = cmd_info_queue[get_max_index_key()];
 	    var check_reverse_search = e.data.trim();
 	    if (editor_mode || next_command_mode) {
-	        const re_shell_prompt = /[a-zA-Z0-9_]+@[^:]+:.*\$ $/m;
+		const re_shell_prompt = /[a-zA-Z0-9_]+@[^:]+:.*\$ $/m;
 
 		if ((e.data.toLowerCase().includes('password for') ||
 		    e.data.toLowerCase().includes('password:')) &&
@@ -293,6 +297,28 @@
 		    next_command_mode = false;
 		}
 	    }
+	    if (yn_check == true) {
+		if (!yn_check_value.toLowerCase() == 'y' &&
+		     !yn_check_value.toLowerCase() == 'n') {
+	            yn_check_value = e.data;
+		    return setTimeout(write, 1, e.data);
+		} else {
+		    interactive = false;
+		    yn_check = false;
+		    yn_check_value = "";
+		}
+	    } else if (yesno_check == true) {
+		if (!yesno_check_list.join(',').toLowerCase().includes('y,e,s') &&
+		     !yesno_check_list.join(',').toLowerCase().includes('n,o')) {
+	            yesno_check_list.push(e.data);
+		    return setTimeout(write, 1, e.data);
+		} else {
+		    interactive = false;
+		    yesno_check = false;
+		    yesno_check_list = []
+		}
+	    }
+
 	    if (!reverse_search_mode && interactive) {
 		//console.log("!!!!!!!!!! remove interactive");
 		remove_popup(300);
@@ -320,12 +346,19 @@
 		reverse_search_mode = false;
 		interactive = false;
 		return setTimeout(write, 1, e.data);
-	    } else if (e.data.toLowerCase().includes('y/n')||
-		       e.data.toLowerCase().includes('yes/no')) {
+	    } else if (e.data.toLowerCase().includes('y/n')) {
 		interactive = true;
+		yn_check = true;
+		show_popup('progress');
 		if (cmd_info)
 		    cmd_info.progress = false;
+		return setTimeout(write, 1, e.data);
+	    } else if (e.data.toLowerCase().includes('yes/no')) {
+		interactive = true;
+		yesno_check = true;
 		show_popup('progress');
+		if (cmd_info)
+		    cmd_info.progress = false;
 		return setTimeout(write, 1, e.data);
 	    }
 
@@ -2559,7 +2592,7 @@
 	};
 
 	is_changed_pwd = function(cmd_line) {
-	    return /^(cd |pushd |popd |su |docker exec |docker run |login |mysql |psql |mongo |redis-cli |exit |quit )/.test(cmd_line);
+	    return /^(cd |pushd |popd|su | su|docker exec |docker run |ssh |login|mysql |psql |mongo |redis-cli |exit|quit)/.test(cmd_line);
 	};
 
 	Terminal.prototype.send = function(data) {
