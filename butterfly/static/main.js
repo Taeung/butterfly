@@ -295,12 +295,23 @@
 		    next_command_mode = false;
 		}
 	    }
+
+	    if (e.data.toLowerCase().includes('^c')) {
+		remove_popup(300);
+		yn_check = false;
+		yn_check_value = "";
+		yesno_check = false;
+		yesno_check_list = []
+		interactive = false;
+		return setTimeout(write, 1, e.data);
+	    }
+
 	    if (yn_check == true) {
 		if (!yn_check_value.toLowerCase() == 'y' &&
 		     !yn_check_value.toLowerCase() == 'n') {
 	            yn_check_value = e.data;
 		    return setTimeout(write, 1, e.data);
-		} else {
+	        } else {
 		    interactive = false;
 		    yn_check = false;
 		    yn_check_value = "";
