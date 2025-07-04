@@ -12,7 +12,6 @@
     up_arrow = false;
     interactive = false;
     yn_check = false;
-    yn_check_value = "";
     yesno_check = false;
     yesno_check_list = [];
     reverse_search_mode = false;
@@ -299,7 +298,6 @@
 	    if (e.data.toLowerCase().includes('^c')) {
 		remove_popup(300);
 		yn_check = false;
-		yn_check_value = "";
 		yesno_check = false;
 		yesno_check_list = []
 		interactive = false;
@@ -307,14 +305,11 @@
 	    }
 
 	    if (yn_check == true) {
-		if (!yn_check_value.toLowerCase() == 'y' &&
-		     !yn_check_value.toLowerCase() == 'n') {
-	            yn_check_value = e.data;
+		if (!e.data.toLowerCase() == 'y' &&
+		     !e.data.toLowerCase() == 'n') {
 		    return setTimeout(write, 1, e.data);
 	        } else {
-		    interactive = false;
 		    yn_check = false;
-		    yn_check_value = "";
 		}
 	    } else if (yesno_check == true) {
 		if (!yesno_check_list.join(',').toLowerCase().includes('y,e,s') &&
@@ -322,15 +317,14 @@
 	            yesno_check_list.push(e.data);
 		    return setTimeout(write, 1, e.data);
 		} else {
-		    interactive = false;
 		    yesno_check = false;
 		    yesno_check_list = []
 		}
 	    }
 
 	    if (!reverse_search_mode && interactive) {
-		//console.log("!!!!!!!!!! remove interactive");
-		remove_popup(300);
+		//console.log1("!!!!!!!!!! remove interactive");
+		remove_popup(1);
 		interactive = false;
 		return setTimeout(write, 1, e.data);
 	    } else if (e.data.toLowerCase().includes('password for') ||
