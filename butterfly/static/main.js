@@ -1,5 +1,5 @@
 (function() {
-    var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws,
+    var $, State, Terminal, cancel, cols, isMobile, openTs, quit, rows, s, ws, what_user_type, yn_check, yesno_check, yesno_check_list,
 	sigint, sigint_next_line, cmd_line, cmd_info_queue, cmd_init, up_arrow, cmd_prompt, shell_prompts, interactive, check_cmdline_status, save_cmdline, user_id, reverse_search_mode,
 	indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
     cols = rows = null;
@@ -18,6 +18,7 @@
     user_id=null;
     editor_mode = false;
     next_command_mode = false;
+    what_user_type = '';
     openTs = (new Date()).getTime();
     ws = {
 	shell: null,
@@ -312,13 +313,23 @@
 		    yn_check = false;
 		}
 	    } else if (yesno_check == true) {
-		if (!yesno_check_list.join(',').toLowerCase().includes('y,e,s') &&
-		     !yesno_check_list.join(',').toLowerCase().includes('n,o')) {
-	            yesno_check_list.push(e.data);
-		    return setTimeout(write, 1, e.data);
-		} else {
+		if ((yesno_check_list.join('').toLowerCase() == 'yes\r\n') ||
+		    (yesno_check_list.join('').toLowerCase() == 'no\r\n')) {
 		    yesno_check = false;
-		    yesno_check_list = []
+		    yesno_check_list = [];
+		} else {
+		    if (what_user_type == e.data) {
+			yesno_check_list.push(e.data);
+		    }
+		    if (e.data.includes('\r\n')) {
+			yesno_check_list.push('\r\n');
+		    }
+		    if (e.data.includes('\r\n') &&
+			(yesno_check_list.join('').toLowerCase() != 'yes\r\n') &&
+			(yesno_check_list.join('').toLowerCase() != 'no\r\n')) {
+			yesno_check_list = [];
+		    }
+		    return setTimeout(write, 1, e.data);
 		}
 	    }
 
@@ -350,16 +361,23 @@
 		interactive = false;
 		return setTimeout(write, 1, e.data);
 	    } else if (e.data.toLowerCase().includes('y/n')) {
+		remove_popup(300)
 		interactive = true;
 		yn_check = true;
-		show_popup('progress');
 		if (cmd_info)
 		    cmd_info.progress = false;
 		return setTimeout(write, 1, e.data);
 	    } else if (e.data.toLowerCase().includes('yes/no')) {
+		remove_popup(300)
 		interactive = true;
 		yesno_check = true;
-		show_popup('progress');
+		if (cmd_info)
+		    cmd_info.progress = false;
+		return setTimeout(write, 1, e.data);
+	    } else if (e.data.toLowerCase().includes('enter passphrase for key')) {
+		//console.log("!!!!!!!! start interactive");
+		remove_popup(300)
+		interactive = true;
 		if (cmd_info)
 		    cmd_info.progress = false;
 		return setTimeout(write, 1, e.data);
@@ -2020,6 +2038,8 @@
 
 	Terminal.prototype.keyDown = function(ev) {
 	    var key, ref;
+	    what_user_type = ev.key;
+
 	    if (this.inComposition) {
 		if (ev.keyCode === 229) {
 		    return false;
