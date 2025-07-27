@@ -558,7 +558,7 @@
 	parent.set_cmd_status(`cmd-${my_cmd.cmd_seq}`, my_cmd.status);
 	parent.set_progress_percent(`${percent}`);
 	if (data['progress_percent'] == 100)
-	    parent.show_levelup_modal(data.my_level, data.is_levelup);
+	    parent.show_levelup_modal();
 
 	delete_cmd_info(cmd_info);
     };
