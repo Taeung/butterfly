@@ -360,7 +360,7 @@
 		reverse_search_mode = false;
 		interactive = false;
 		return setTimeout(write, 1, e.data);
-	    } else if (e.data.toLowerCase().includes('y/n')) {
+	    } else if (/(^|[^a-z0-9])y\/n([^a-z0-9]|$)/i.test(e.data)) {
 		remove_popup(300)
 		interactive = true;
 		yn_check = true;
