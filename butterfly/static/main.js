@@ -2615,7 +2615,7 @@
 	};
 
 	is_changed_pwd = function(cmd_line) {
-	    return /^(cd |pushd |popd|su | su|docker exec |kubectl exec |ssh |login|mysql |psql |mongo |redis-cli |exit|quit)/.test(cmd_line);
+	    return /^(cd |pushd |popd|su | su|docker exec |kubectl exec |ssh |login|mysql |psql |mongo |redis-cli |exit|quit|source)/.test(cmd_line);
 	};
 
 	Terminal.prototype.send = function(data) {
