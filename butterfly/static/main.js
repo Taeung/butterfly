@@ -2674,7 +2674,7 @@
 			const full_cmd = cmd_line.trim();
 			cmd_line = "";
 		        const cmd_lower = full_cmd.toLowerCase();
-		        if (/^(\s*(sudo|doas)\s+)?(nano|vim|vi)(\s+|$)/.test(cmd_lower)) {
+		        if (/^\s*(?:(?:(?:sudo|doas)\s+)?(?:nano|vim|vi)(?:\s+|$)|fg\s+%\?(?:nano|vim|vi)\b)/i.test(cmd_lower)) {
 		            remove_popup(300);
 			    editor_mode = true;
 		        }
