@@ -595,6 +595,7 @@
 
 	cmd_info.cmd_seq = my_cmd.cmd_seq;
 	cmd_info.expected_results = my_cmd.expected_results;
+	parent.show_cmd_desc(my_cmd.desc);
 	//console.log(`!!!!!!!!!!!! (Initialization completed) =>(cmd_seq: ${my_cmd.cmd_seq}) !!!!!!!!!!!!!`);
 
 	/* typo-error checked from server */
