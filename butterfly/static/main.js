@@ -623,8 +623,38 @@
 	return;
     };
 
+    request_cmd_desc = function(cmd_info) {
+	var parts = location.href.split("/");
+	parts.pop();
+	parts.pop();
+
+	var base_url =  parts.join("/");
+	var url = `${base_url}/cmd/desc`;
+	fetch(url, {
+	    method: 'POST',
+	    headers: {
+		'Content-Type': 'application/json',
+		'X-CSRFToken': parent.csrftoken,
+	    },
+	    body: JSON.stringify(cmd_info),
+	})
+	.then(response => {
+	    if (!response.ok) {
+		throw new Error('Network response was not ok');
+	    }
+	    return response.text();
+	})
+	.then(data => {
+	    parent.show_cmd_desc(data);
+	})
+	.catch(error => {
+	    console.error('Fetch error:', error);
+	});
+    }
+
     begin_cmdinfo = function(cmd_info) {
 	//console.log(`////////// begin_cmdinfo() ${cmd_info.cmd_line}(${cmd_info.index})`);
+	request_cmd_desc(cmd_info);
 	save_cmdinfo(cmd_info, begin_cmdinfo_return);
     };
 
