@@ -128,7 +128,7 @@
 	    }
 	};
 	function remove_ansi_codes(str) {
-	    return str.replace(/\x1b\[[0-9;]*m/g, '');
+	    return str.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
 	}
 	const entities = {
 	    '&lt;': '<',
