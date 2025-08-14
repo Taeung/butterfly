@@ -289,7 +289,7 @@
 		        cmd_info.progress = false;
 		    }
 		    return setTimeout(write, 1, e.data);
-		} else if (e.data.includes(cmd_prompt)) {
+		} else if (remove_ansi_codes(e.data).trimEnd().endsWith(cmd_prompt)) {
 		    remove_popup(300);
 		    editor_mode = false;
 		    next_command_mode = false;
@@ -397,42 +397,24 @@
 
 		if (!cmd_info.finish) {
 		    //console.log(`////////// write_request() ${cmd_info.cmd_line}(${cmd_info.index})`);
-		    var p = shell_prompts.join('');
 		    var result_lines = e.data.trimStart().split('\n');
-		    var line_count = result_lines.length;
 		    var last_line = result_lines.pop();
-		    var start_with_esc = last_line.charCodeAt(0) == 27;
+		    last_line = remove_ansi_codes(last_line)
 
 		    if (!cmd_info.progress) {
 			show_popup('progress');
 			cmd_info.progress = true;
 		    }
 
-		    if (line_count == 1 && (start_with_esc ||
-					    p.includes(last_line) ||
-					    last_line.includes(p))) {
-			/* do not collect a shell prompt special string */;
-		    } else {
-			var result_line = result_lines.join('');
-
-			if (last_line.trimEnd().endsWith(cmd_prompt))
-			    cmd_info.cmd_results += result_line;
-			else
-			    cmd_info.cmd_results += e.data;
-
-			/* Not yet, begin_return is arrived */
-			if ((cmd_info.cmd_seq || cmd_info.cmd_seq == 0) && cmd_info.cmd_seq != -1) {
-			    check_result_status(cmd_info);
-			    delete cmd_info.cmd_results;
-			    cmd_info.cmd_results = "";
-			}
-		    }
-
-		    last_line = remove_ansi_codes(last_line)
 		    /* Finish to check cmdline status */
 		    if (last_line.trimEnd().endsWith(cmd_prompt)) {
+			cmd_info.cmd_results += remove_ansi_codes(e.data).replace(last_line, "")
 			cmd_info.finish = true;
+		        if ((cmd_info.cmd_seq || cmd_info.cmd_seq == 0) && cmd_info.cmd_seq != -1)
+		            check_result_status(cmd_info);
 			//console.log("!!!!!!!!!!!!!!!!!!!!!! finish checked @@@@@@@@@@@@@@@@@");
+		    } else {
+		        cmd_info.cmd_results += remove_ansi_codes(e.data);
 		    }
 		    return setTimeout(write, 1, e.data, cmd_info);
 		}
@@ -585,6 +567,10 @@
 	    else
 		cmd_info.status = 'failed';
 	}
+	if (cmd_info.status !== "failed") {
+	    delete cmd_info.cmd_results;
+	    cmd_info.cmd_results = "";
+	}
 	save_cmdinfo(cmd_info, end_cmdinfo_return);
     };
 
@@ -655,7 +641,6 @@
 
     begin_cmdinfo = function(cmd_info) {
 	//console.log(`////////// begin_cmdinfo() ${cmd_info.cmd_line}(${cmd_info.index})`);
-	request_cmd_desc(cmd_info);
 	save_cmdinfo(cmd_info, begin_cmdinfo_return);
     };
 
