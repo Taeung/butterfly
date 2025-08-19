@@ -570,7 +570,9 @@
 	if (cmd_info.status !== "failed") {
 	    delete cmd_info.cmd_results;
 	    cmd_info.cmd_results = "";
-	}
+	} else {
+        cmd_info.cmd_results = cmd_info.cmd_results.split("\n").slice(-1000).join("\n");
+    }
 	save_cmdinfo(cmd_info, end_cmdinfo_return);
     };
 
