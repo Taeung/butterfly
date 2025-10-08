@@ -128,7 +128,9 @@
 	    }
 	};
 	function remove_ansi_codes(str) {
-	    return str.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
+	    str = str.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
+	    str = str.replace(/\x1B\(B/g, ''); // ESC \u001b(B for term color
+	    return str;
 	}
 	const entities = {
 	    '&lt;': '<',
